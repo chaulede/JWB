@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>中文网课互动白板 - 商业授权版 · 100账号</title>
+<title>中文网课互动白板 - 商业授权版</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.16.0/dist/index.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -100,13 +100,13 @@
     <div class="auth-box">
         <h1 class="text-2xl font-bold text-slate-800 mb-2">🔒 软件授权登录</h1>
         <p class="text-sm text-slate-500 mb-4">请输入您的专属授权账号和密码</p>
-        <input type="text" id="authAccount" placeholder="账号 (如: client001)" class="w-full border border-slate-300 rounded-lg p-3 text-center text-base outline-none focus:ring-2 focus:ring-indigo-500 mb-3" autocomplete="off">
+        <input type="text" id="authAccount" placeholder="教师账号 (如: teacher1)" class="w-full border border-slate-300 rounded-lg p-3 text-center text-base outline-none focus:ring-2 focus:ring-indigo-500 mb-3" autocomplete="off">
         <input type="password" id="authPassword" placeholder="密码" class="w-full border border-slate-300 rounded-lg p-3 text-center text-base outline-none focus:ring-2 focus:ring-indigo-500 mb-4" autocomplete="off">
         <div class="flex items-center justify-between mb-5 text-xs text-slate-600">
             <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="rememberMe" class="mr-1.5 rounded text-indigo-600 focus:ring-indigo-500"> 记住授权状态
             </label>
-            <span id="authTip" class="text-indigo-600 font-medium">商业授权版 · 100账号</span>
+            <span id="authTip" class="text-indigo-600 font-medium">商业授权版</span>
         </div>
         <button id="btnAuthLogin" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition cursor-pointer shadow-md">验证并进入系统</button>
         <p class="text-xs text-slate-400 mt-4">如需获取授权或购买，请联系软件供应商</p>
@@ -267,15 +267,112 @@
 </div>
 
 <script>
-    // ================= 1. 客户授权列表 — 100个独立账号 + teacher1 =================
+    // ================= 1. 客户授权列表（100个固定账号） =================
     const VALID_ACCOUNTS = [
         { account: "admin", password: "chaulede" },
         { account: "carrotluo", password: "abc123" },
+        
+        // 100个批量客户账号
         { account: "teacher1", password: "123" },
-        ...Array.from({ length: 100 }, (_, i) => {
-            const num = (i + 1).toString().padStart(3, '0');
-            return { account: `client${num}`, password: `pass${num}` };
-        })
+        { account: "teacher2", password: "123" },
+        { account: "teacher3", password: "123" },
+        { account: "teacher4", password: "123" },
+        { account: "teacher5", password: "123" },
+        { account: "teacher6", password: "123" },
+        { account: "teacher7", password: "123" },
+        { account: "teacher8", password: "123" },
+        { account: "teacher9", password: "123" },
+        { account: "teacher10", password: "123" },
+        { account: "teacher11", password: "123" },
+        { account: "teacher12", password: "123" },
+        { account: "teacher13", password: "123" },
+        { account: "teacher14", password: "123" },
+        { account: "teacher15", password: "123" },
+        { account: "teacher16", password: "123" },
+        { account: "teacher17", password: "123" },
+        { account: "teacher18", password: "123" },
+        { account: "teacher19", password: "123" },
+        { account: "teacher20", password: "123" },
+        { account: "teacher21", password: "123" },
+        { account: "teacher22", password: "123" },
+        { account: "teacher23", password: "123" },
+        { account: "teacher24", password: "123" },
+        { account: "teacher25", password: "123" },
+        { account: "teacher26", password: "123" },
+        { account: "teacher27", password: "123" },
+        { account: "teacher28", password: "123" },
+        { account: "teacher29", password: "123" },
+        { account: "teacher30", password: "123" },
+        { account: "teacher31", password: "123" },
+        { account: "teacher32", password: "123" },
+        { account: "teacher33", password: "123" },
+        { account: "teacher34", password: "123" },
+        { account: "teacher35", password: "123" },
+        { account: "teacher36", password: "123" },
+        { account: "teacher37", password: "123" },
+        { account: "teacher38", password: "123" },
+        { account: "teacher39", password: "123" },
+        { account: "teacher40", password: "123" },
+        { account: "teacher41", password: "123" },
+        { account: "teacher42", password: "123" },
+        { account: "teacher43", password: "123" },
+        { account: "teacher44", password: "123" },
+        { account: "teacher45", password: "123" },
+        { account: "teacher46", password: "123" },
+        { account: "teacher47", password: "123" },
+        { account: "teacher48", password: "123" },
+        { account: "teacher49", password: "123" },
+        { account: "teacher50", password: "123" },
+        { account: "teacher51", password: "123" },
+        { account: "teacher52", password: "123" },
+        { account: "teacher53", password: "123" },
+        { account: "teacher54", password: "123" },
+        { account: "teacher55", password: "123" },
+        { account: "teacher56", password: "123" },
+        { account: "teacher57", password: "123" },
+        { account: "teacher58", password: "123" },
+        { account: "teacher59", password: "123" },
+        { account: "teacher60", password: "123" },
+        { account: "teacher61", password: "123" },
+        { account: "teacher62", password: "123" },
+        { account: "teacher63", password: "123" },
+        { account: "teacher64", password: "123" },
+        { account: "teacher65", password: "123" },
+        { account: "teacher66", password: "123" },
+        { account: "teacher67", password: "123" },
+        { account: "teacher68", password: "123" },
+        { account: "teacher69", password: "123" },
+        { account: "teacher70", password: "123" },
+        { account: "teacher71", password: "123" },
+        { account: "teacher72", password: "123" },
+        { account: "teacher73", password: "123" },
+        { account: "teacher74", password: "123" },
+        { account: "teacher75", password: "123" },
+        { account: "teacher76", password: "123" },
+        { account: "teacher77", password: "123" },
+        { account: "teacher78", password: "123" },
+        { account: "teacher79", password: "123" },
+        { account: "teacher80", password: "123" },
+        { account: "teacher81", password: "123" },
+        { account: "teacher82", password: "123" },
+        { account: "teacher83", password: "123" },
+        { account: "teacher84", password: "123" },
+        { account: "teacher85", password: "123" },
+        { account: "teacher86", password: "123" },
+        { account: "teacher87", password: "123" },
+        { account: "teacher88", password: "123" },
+        { account: "teacher89", password: "123" },
+        { account: "teacher90", password: "123" },
+        { account: "teacher91", password: "123" },
+        { account: "teacher92", password: "123" },
+        { account: "teacher93", password: "123" },
+        { account: "teacher94", password: "123" },
+        { account: "teacher95", password: "123" },
+        { account: "teacher96", password: "123" },
+        { account: "teacher97", password: "123" },
+        { account: "teacher98", password: "123" },
+        { account: "teacher99", password: "123" },
+        { account: "teacher100", password: "123" }
     ];
 
     const authOverlay = document.getElementById('authOverlay');

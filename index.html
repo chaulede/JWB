@@ -4,56 +4,206 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>中文网课互动白板 - 商业授权版</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.16.0/dist/index.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.16/mammoth.browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/pinyin-pro/3.16.0/index.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/mammoth/1.4.16/mammoth.browser.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 <style>
+    /* ========== 提取自 Tailwind 的基础样式 ========== */
+    *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
+    body { margin: 0; line-height: inherit; background-color: #f1f5f9; min-height: 100vh; padding: 1rem; overflow: hidden; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; }
+    @media (min-width: 768px) { body { padding: 1.5rem; } }
+    button, input, select, textarea { font-family: inherit; font-size: 100%; font-weight: inherit; line-height: inherit; color: inherit; margin: 0; padding: 0; }
+    button { cursor: pointer; background-color: transparent; background-image: none; text-transform: none; }
+    input, select { outline: none; }
+    img { display: block; max-width: 100%; height: auto; }
+    h1, h2, h3, p, ul { margin: 0; }
+    
+    .hidden { display: none !important; }
+    .flex { display: flex !important; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .justify-end { justify-content: flex-end; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-1 { flex: 1 1 0%; }
+    .shrink-0 { flex-shrink: 0; }
+    .gap-1 { gap: 0.25rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-2\.5 { gap: 0.625rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-6 { gap: 1.5rem; }
+    .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem; }
+    .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+    
+    .w-full { width: 100%; }
+    .w-40 { width: 10rem; }
+    .w-px { width: 1px; }
+    .h-6 { height: 1.5rem; }
+    .h-\[calc\(100vh-3rem\)\] { height: calc(100vh - 3rem); }
+    .max-h-40 { max-height: 10rem; }
+    .max-h-\[90vh\] { max-height: 90vh; }
+    .min-h-full { min-height: 100%; }
+    .max-w-4xl { max-width: 56rem; }
+    .max-w-\[420px\] { max-width: 420px; }
+    
+    .p-3 { padding: 0.75rem; }
+    .p-4 { padding: 1rem; }
+    .p-5 { padding: 1.25rem; }
+    .p-6 { padding: 1.5rem; }
+    .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+    .pt-2 { padding-top: 0.5rem; }
+    .pt-3 { padding-top: 0.75rem; }
+    .pb-2 { padding-bottom: 0.5rem; }
+    .pb-3 { padding-bottom: 0.75rem; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-5 { margin-bottom: 1.25rem; }
+    .mt-1 { margin-top: 0.25rem; }
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-4 { margin-top: 1rem; }
+    .mt-auto { margin-top: auto; }
+    .ml-2 { margin-left: 0.5rem; }
+    .mr-1 { margin-right: 0.25rem; }
+    .mr-1\.5 { margin-right: 0.375rem; }
+    .mr-2 { margin-right: 0.5rem; }
+    .mr-3 { margin-right: 0.75rem; }
+    .mx-1 { margin-left: 0.25rem; margin-right: 0.25rem; }
+    .mx-2 { margin-left: 0.5rem; margin-right: 0.5rem; }
+    
+    .text-xs { font-size: 0.75rem; line-height: 1rem; }
+    .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+    .text-base { font-size: 1rem; line-height: 1.5rem; }
+    .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+    .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+    .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+    .text-\[10px\] { font-size: 10px; }
+    .font-bold { font-weight: 700; }
+    .font-medium { font-weight: 500; }
+    .font-normal { font-weight: 400; }
+    .text-center { text-align: center; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    
+    .text-white { color: #ffffff; }
+    .text-slate-400 { color: #94a3b8; }
+    .text-slate-500 { color: #64748b; }
+    .text-slate-600 { color: #475569; }
+    .text-slate-700 { color: #334155; }
+    .text-slate-800 { color: #1e293b; }
+    .text-indigo-400 { color: #818cf8; }
+    .text-indigo-500 { color: #6366f1; }
+    .text-indigo-600 { color: #4f46e5; }
+    .text-indigo-700 { color: #4338ca; }
+    .text-indigo-800 { color: #3730a3; }
+    .text-teal-600 { color: #0d9488; }
+    .text-teal-700 { color: #0f766e; }
+    .text-teal-800 { color: #115e59; }
+    .text-blue-700 { color: #1d4ed8; }
+    .text-blue-800 { color: #1e40af; }
+    .text-purple-700 { color: #7e22ce; }
+    .text-red-500 { color: #ef4444; }
+    .text-red-700 { color: #b91c1c; }
+    .text-green-600 { color: #16a34a; }
+    
+    .bg-white { background-color: #ffffff; }
+    .bg-slate-100 { background-color: #f1f5f9; }
+    .bg-slate-200 { background-color: #e2e8f0; }
+    .bg-slate-300 { background-color: #cbd5e1; }
+    .bg-slate-900\/60 { background-color: rgba(15, 23, 42, 0.6); }
+    .bg-indigo-50 { background-color: #eef2ff; }
+    .bg-indigo-600 { background-color: #4f46e5; }
+    .bg-teal-50 { background-color: #f0fdfa; }
+    .bg-blue-50 { background-color: #eff6ff; }
+    .bg-blue-100 { background-color: #dbeafe; }
+    .bg-purple-100 { background-color: #f3e8ff; }
+    .bg-purple-600 { background-color: #9333ea; }
+    .bg-red-50 { background-color: #fef2f2; }
+    .bg-red-100 { background-color: #fee2e2; }
+    .bg-amber-50 { background-color: #fffbeb; }
+    .bg-emerald-600 { background-color: #059669; }
+    .bg-emerald-700 { background-color: #047857; }
+    .bg-indigo-700 { background-color: #4338ca; }
+    
+    .border { border-width: 1px; }
+    .border-4 { border-width: 4px; }
+    .border-b { border-bottom-width: 1px; }
+    .border-t { border-top-width: 1px; }
+    .border-slate-100 { border-color: #f1f5f9; }
+    .border-slate-200 { border-color: #e2e8f0; }
+    .border-slate-300 { border-color: #cbd5e1; }
+    .border-indigo-200 { border-color: #c7d2fe; }
+    .border-indigo-300 { border-color: #a5b4fc; }
+    .border-teal-200 { border-color: #99f6e4; }
+    .border-blue-100 { border-color: #dbeafe; }
+    .border-blue-200 { border-color: #bfdbfe; }
+    .border-blue-300 { border-color: #93c5fd; }
+    .border-purple-300 { border-color: #d8b4fe; }
+    .border-red-200 { border-color: #fecaca; }
+    .border-amber-200 { border-color: #fde68a; }
+    .border-slate-300 { border-color: #cbd5e1; }
+    
+    .rounded { border-radius: 0.25rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-2xl { border-radius: 1rem; }
+    .rounded-b-2xl { border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem; }
+    .shadow { box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1); }
+    .shadow-md { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); }
+    .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); }
+    .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+    
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .fixed { position: fixed; }
+    .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+    .z-50 { z-index: 50; }
+    .z-\[100\] { z-index: 100; }
+    .overflow-hidden { overflow: hidden; }
+    .overflow-y-auto { overflow-y: auto; }
+    .cursor-pointer { cursor: pointer; }
+    .backdrop-blur-sm { backdrop-filter: blur(4px); }
+    .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+    
+    /* ====== 侧边栏收起与展开响应式修复 ====== */
+    @media (min-width: 768px) {
+        .md\:flex-row { flex-direction: row; }
+        .md\:p-6 { padding: 1.5rem; }
+        .md\:text-2xl { font-size: 1.5rem; line-height: 2rem; }
+        
+        /* 展开状态下的宽度 */
+        .md\:w-80 { width: 20rem; }
+        
+        /* 收起状态：宽度、内边距、边框、透明度全部清零 */
+        .md\:w-0 { width: 0px !important; }
+        .md\:p-0 { padding: 0px !important; }
+        .md\:m-0 { margin: 0px !important; }
+        .md\:border-0 { border-width: 0px !important; }
+        .md\:opacity-0 { opacity: 0 !important; }
+        .md\:overflow-hidden { overflow: hidden !important; }
+    }
+
+    /* ========== 原有自定义样式 ========== */
     #authOverlay { position: fixed; inset: 0; background: #f1f5f9; z-index: 9999; display: flex; justify-content: center; align-items: center; }
     .auth-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 90%; }
-
-    /* 文字层和画布层共用滚动 */
-    #whiteboardScrollContainer {
-        position: absolute;
-        inset: 0;
-        overflow: auto;
-        z-index: 10;
-    }
-
-    /* 实际内容容器，跟随滚动 */
-    #whiteboardInnerWrapper {
-        position: relative;
-        min-height: 100%;
-        width: 100%;
-    }
-
-    #whiteboardContent {
-        font-family: 'KaiTi', '楷体', 'STKaiti', 'Kaiti SC', 'Songti SC', 'PingFang SC', 'Microsoft YaHei', serif;
-        line-height: 3.5; outline: none; word-break: break-word; padding: 20px;
-        position: relative;
-        z-index: 2;
-    }
-    #drawCanvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 3;
-        pointer-events: none;
-        touch-action: none;
-    }
+    #whiteboardScrollContainer { position: absolute; inset: 0; overflow: auto; z-index: 10; }
+    #whiteboardInnerWrapper { position: relative; min-height: 100%; width: 100%; }
+    #whiteboardContent { font-family: 'KaiTi', '楷体', 'STKaiti', 'Kaiti SC', 'Songti SC', 'PingFang SC', 'Microsoft YaHei', serif; line-height: 3.5; outline: none; word-break: break-word; padding: 20px; position: relative; z-index: 2; }
+    #drawCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; touch-action: none; }
     #drawCanvas.active { pointer-events: auto; cursor: crosshair; }
-
-    .pasted-image {
-        max-width: 90%;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin: 10px 0;
-        display: block;
-    }
-    ruby { ruby-align: center; margin: 0 4px; font-size: 1em; }
+    .pasted-image { max-width: 90%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 10px 0; display: block; }
+    ruby { ruby-align: center; margin: 0 4px; font-size: 1em; white-space: nowrap; }
     rt { font-size: 0.8em !important; color: #1d4ed8 !important; font-family: 'Arial', 'Helvetica', sans-serif !important; font-weight: bold !important; margin-bottom: 2px; line-height: 1.1; }
     .english-line { display: block !important; font-size: 0.85em !important; color: #64748b; font-family: 'Arial', sans-serif; font-style: italic; border-left: 3px solid #cbd5e1; padding-left: 8px; margin: 8px 0 20px 0 !important; line-height: 1.4 !important; width: 100%; }
     .toolbar-btn { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 6px 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; cursor: pointer; font-weight: 500; transition: all 0.2s; }
@@ -63,7 +213,6 @@
     .color-btn { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
     .color-btn.active { border-color: #334155; transform: scale(1.15); }
     .color-btn:hover { transform: scale(1.15); }
-
     .loader-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: #4f46e5; animation: spin 1s linear infinite; margin-bottom: 15px; }
     .loader { border: 2px solid rgba(255, 255, 255, 0.3); width: 16px; height: 16px; border-radius: 50%; border-left-color: #ffffff; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 6px; }
@@ -72,7 +221,6 @@
     .kb-item:hover { background: #eff6ff; border-color: #93c5fd; }
     .kb-title { font-weight: bold; color: #1e40af; font-size: 13px; }
     .kb-tags { font-size: 10px; color: #64748b; margin-top: 2px; }
-
     .markdown-body { line-height: 1.6; font-family: 'Microsoft YaHei', sans-serif; font-size: 15px; color: #334155; }
     .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: #1e3a8a; margin-top: 20px; margin-bottom: 12px; font-weight: bold; }
     .markdown-body h2 { font-size: 1.4em; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 30px; }
@@ -93,7 +241,7 @@
     .sidebar-transition { transition: all 0.3s ease-in-out; }
 </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-4 md:p-6 overflow-hidden">
+<body>
 
 <!-- 登录验证遮罩层 -->
 <div id="authOverlay">
@@ -113,7 +261,7 @@
     </div>
 </div>
 
-<!-- 主体内容 (初始隐藏) -->
+<!-- 主体内容 -->
 <div id="appContent" class="hidden flex-col md:flex-row h-[calc(100vh-3rem)] gap-6 relative">
     <div class="flex-1 bg-white rounded-2xl shadow-lg flex flex-col border-4 border-blue-200 p-4 md:p-6 relative w-full sidebar-transition">
         <div id="drawToolbar">
@@ -144,7 +292,7 @@
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
                 <button id="btnAddPinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold">✨ 划选加拼音</button>
-                <button id="btnClearPinyin" class="toolbar-btn bg-blue-50 text-blue-800 border-blue-200 font-bold">🔤 清除拼音</button>
+                <button id="btnClearPinyin" class="toolbar-btn bg-blue-50 text-blue-800 border-blue-200 font-bold">↩️ 撤销拼音</button>
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
                         <option value="English">英语 (English)</option>
@@ -156,6 +304,8 @@
                         <option value="Spanish">西班牙语 (Español)</option>
                         <option value="Indonesian">印尼语 (Bahasa Indonesia)</option>
                         <option value="Russian">俄语 (Русский)</option>
+                        <option value="Thai">泰语 (ภาษาไทย)</option>
+                        <option value="Vietnamese">越南语 (Tiếng Việt)</option>
                     </select>
                     <button id="btnTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer">🌐 划选翻译</button>
                 </div>
@@ -166,12 +316,9 @@
         </div>
 
         <div class="relative flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white" id="canvasWrapper">
-            <!-- 将滚动条交给统一的外层容器 -->
             <div id="whiteboardScrollContainer">
                 <div id="whiteboardInnerWrapper">
-                    <!-- 画板层 -->
                     <canvas id="drawCanvas"></canvas>
-                    <!-- 文字层 -->
                     <div id="whiteboardContent" contenteditable="true" class="w-full min-h-full text-xl md:text-2xl text-slate-700">
                         <p>欢迎使用！<br>1. 右侧输入关键词检索知识点。<br>2. 选中文字可加拼音、翻译。<br>3. 支持直接粘贴截图，或上传本地文档。</p>
                     </div>
@@ -184,21 +331,24 @@
         </div>
     </div>
 
-    <button id="btnExpandSidebar" class="hidden fixed top-6 right-6 z-50 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg font-bold transition flex items-center gap-2">
-        ⬅️ 展开面板
+    <!-- 【已修改】展开按钮：使用向左的双箭头图标，贴边显示 -->
+    <button id="btnExpandSidebar" class="hidden fixed top-1/2 right-0 -translate-y-1/2 z-[100] bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-l-xl shadow-lg transition flex items-center justify-center border border-r-0 border-indigo-400" title="展开面板">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+        </svg>
     </button>
 
     <div id="sidebarPanel" class="w-full md:w-80 bg-white rounded-2xl shadow p-5 flex flex-col space-y-4 border border-slate-200 overflow-y-auto sidebar-transition shrink-0">
         <div class="flex justify-between items-center pb-2 border-b border-slate-100">
             <h1 class="text-lg font-bold text-slate-800 ml-2">📖 智能课堂助手</h1>
-            <button id="btnCollapseSidebar" class="text-slate-400 hover:text-indigo-600 p-1" title="收起面板">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <!-- 收起按钮 -->
+            <button id="btnCollapseSidebar" class="text-slate-400 hover:text-red-500 p-2 hover:bg-slate-100 rounded-lg transition cursor-pointer" title="收起面板">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                 </svg>
             </button>
         </div>
 
-        <!-- 检索知识点 -->
         <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-200 space-y-2">
             <label class="block text-xs font-bold text-indigo-800 mb-1">🔍 检索知识点</label>
             <div class="flex gap-1">
@@ -216,17 +366,15 @@
             </div>
         </div>
 
-        <!-- 上传上课文档 -->
         <div class="bg-teal-50 p-3 rounded-lg border border-teal-200 space-y-2">
-            <label class="block text-xs font-bold text-teal-800 mb-1">📂 上传上课文件 (PDF/Word/TXT)</label>
+            <label class="block text-xs font-bold text-teal-800 mb-1">📂 上传上课文件 (PDF/Word/PPT/TXT)</label>
             <div class="flex items-center gap-2">
-                <input type="file" id="docFileUpload" accept=".pdf,.docx,.txt" class="text-[10px] text-slate-500 w-full file:mr-1 file:py-0.5 file:px-1 file:rounded file:border-0 file:bg-teal-100 file:text-teal-700 cursor-pointer">
+                <input type="file" id="docFileUpload" accept=".pdf,.docx,.txt,.pptx" class="text-[10px] text-slate-500 w-full file:mr-1 file:py-0.5 file:px-1 file:rounded file:border-0 file:bg-teal-100 file:text-teal-700 cursor-pointer">
                 <button id="btnClearDoc" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 bg-red-50 rounded" title="删除上传的文件">✖</button>
             </div>
             <p id="docFileName" class="text-[10px] text-teal-600 mt-1 truncate">未选择文件</p>
         </div>
 
-        <!-- AI 模型 -->
         <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 space-y-2">
             <div>
                 <label class="block text-xs font-medium text-slate-700 mb-1">🤖 AI 模型</label>
@@ -259,133 +407,31 @@
             <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 text-2xl font-bold">&times;</button>
         </div>
         <div id="examContent" class="p-6 overflow-y-auto flex-1 markdown-body bg-white"></div>
-        <div class="p-4 border-t flex justify-end gap-3 bg-white rounded-b-2xl">
-            <button onclick="copyExam()" class="px-5 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium">📋 复制文本</button>
-            <button id="modalDownloadBtn" class="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium">📥 下载 Word (保留排版)</button>
+        <div class="p-4 border-t flex justify-between items-center gap-3 bg-white rounded-b-2xl flex-wrap">
+            <button onclick="clearPptFromBoard()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium text-sm" title="从白板删除所有 PPT 导入的幻灯片内容，老师手写的其他内容会保留">🧹 清除白板上的 PPT</button>
+            <div class="flex gap-3">
+                <button onclick="copyExam()" class="px-5 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium">📋 复制文本</button>
+                <button id="modalDownloadBtn" class="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium">📥 下载 Word (保留排版)</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // ================= 1. 客户授权列表（100个固定账号） =================
-    const VALID_ACCOUNTS = [
-        { account: "admin", password: "chaulede" },
-        { account: "carrotluo", password: "abc123" },
-        
-        // 100个批量客户账号
-        { account: "开场白", password: "123456" },
-        { account: "teacher2", password: "123" },
-        { account: "teacher3", password: "123" },
-        { account: "teacher4", password: "123" },
-        { account: "teacher5", password: "123" },
-        { account: "teacher6", password: "123" },
-        { account: "teacher7", password: "123" },
-        { account: "teacher8", password: "123" },
-        { account: "teacher9", password: "123" },
-        { account: "teacher10", password: "123" },
-        { account: "teacher11", password: "123" },
-        { account: "teacher12", password: "123" },
-        { account: "teacher13", password: "123" },
-        { account: "teacher14", password: "123" },
-        { account: "teacher15", password: "123" },
-        { account: "teacher16", password: "123" },
-        { account: "teacher17", password: "123" },
-        { account: "teacher18", password: "123" },
-        { account: "teacher19", password: "123" },
-        { account: "teacher20", password: "123" },
-        { account: "teacher21", password: "123" },
-        { account: "teacher22", password: "123" },
-        { account: "teacher23", password: "123" },
-        { account: "teacher24", password: "123" },
-        { account: "teacher25", password: "123" },
-        { account: "teacher26", password: "123" },
-        { account: "teacher27", password: "123" },
-        { account: "teacher28", password: "123" },
-        { account: "teacher29", password: "123" },
-        { account: "teacher30", password: "123" },
-        { account: "teacher31", password: "123" },
-        { account: "teacher32", password: "123" },
-        { account: "teacher33", password: "123" },
-        { account: "teacher34", password: "123" },
-        { account: "teacher35", password: "123" },
-        { account: "teacher36", password: "123" },
-        { account: "teacher37", password: "123" },
-        { account: "teacher38", password: "123" },
-        { account: "teacher39", password: "123" },
-        { account: "teacher40", password: "123" },
-        { account: "teacher41", password: "123" },
-        { account: "teacher42", password: "123" },
-        { account: "teacher43", password: "123" },
-        { account: "teacher44", password: "123" },
-        { account: "teacher45", password: "123" },
-        { account: "teacher46", password: "123" },
-        { account: "teacher47", password: "123" },
-        { account: "teacher48", password: "123" },
-        { account: "teacher49", password: "123" },
-        { account: "teacher50", password: "123" },
-        { account: "teacher51", password: "123" },
-        { account: "teacher52", password: "123" },
-        { account: "teacher53", password: "123" },
-        { account: "teacher54", password: "123" },
-        { account: "teacher55", password: "123" },
-        { account: "teacher56", password: "123" },
-        { account: "teacher57", password: "123" },
-        { account: "teacher58", password: "123" },
-        { account: "teacher59", password: "123" },
-        { account: "teacher60", password: "123" },
-        { account: "teacher61", password: "123" },
-        { account: "teacher62", password: "123" },
-        { account: "teacher63", password: "123" },
-        { account: "teacher64", password: "123" },
-        { account: "teacher65", password: "123" },
-        { account: "teacher66", password: "123" },
-        { account: "teacher67", password: "123" },
-        { account: "teacher68", password: "123" },
-        { account: "teacher69", password: "123" },
-        { account: "teacher70", password: "123" },
-        { account: "teacher71", password: "123" },
-        { account: "teacher72", password: "123" },
-        { account: "teacher73", password: "123" },
-        { account: "teacher74", password: "123" },
-        { account: "teacher75", password: "123" },
-        { account: "teacher76", password: "123" },
-        { account: "teacher77", password: "123" },
-        { account: "teacher78", password: "123" },
-        { account: "teacher79", password: "123" },
-        { account: "teacher80", password: "123" },
-        { account: "teacher81", password: "123" },
-        { account: "teacher82", password: "123" },
-        { account: "teacher83", password: "123" },
-        { account: "teacher84", password: "123" },
-        { account: "teacher85", password: "123" },
-        { account: "teacher86", password: "123" },
-        { account: "teacher87", password: "123" },
-        { account: "teacher88", password: "123" },
-        { account: "teacher89", password: "123" },
-        { account: "teacher90", password: "123" },
-        { account: "teacher91", password: "123" },
-        { account: "teacher92", password: "123" },
-        { account: "teacher93", password: "123" },
-        { account: "teacher94", password: "123" },
-        { account: "teacher95", password: "123" },
-        { account: "teacher96", password: "123" },
-        { account: "teacher97", password: "123" },
-        { account: "teacher98", password: "123" },
-        { account: "teacher99", password: "123" },
-        { account: "teacher100", password: "123" }
-    ];
-
-    const authOverlay = document.getElementById('authOverlay');
-    const appContent = document.getElementById('appContent');
-    const authAccount = document.getElementById('authAccount');
-    const authPassword = document.getElementById('authPassword');
-    const btnAuthLogin = document.getElementById('btnAuthLogin');
-    const rememberMe = document.getElementById('rememberMe');
-
+    // 合并的 DOMContentLoaded 监听
     window.addEventListener('DOMContentLoaded', () => {
+        if (typeof JSZip === 'undefined') {
+            console.error("❌ 致命错误：JSZip 库未加载成功，无法解析 PPT！");
+            setTimeout(() => alert("⚠️ PPT 解析组件 (JSZip) 加载失败，请检查您的网络或关闭广告拦截插件后刷新页面。"), 500);
+        }
+        if (typeof pdfjsLib === 'undefined') console.warn("⚠️ PDF.js 未加载");
+        if (typeof mammoth === 'undefined') console.warn("⚠️ Mammoth.js 未加载");
+        if (typeof pinyinPro === 'undefined') console.warn("⚠️ pinyin-pro 未加载");
+
         const savedAuth = localStorage.getItem('teacher_whiteboard_auth');
         if (savedAuth === 'true') {
-            authOverlay.style.display = 'none';
+            document.getElementById('authOverlay').style.display = 'none';
+            const appContent = document.getElementById('appContent');
             appContent.classList.remove('hidden');
             appContent.classList.add('flex');
             try { initApp(); } catch (e) { console.warn(e); }
@@ -393,8 +439,18 @@
         }
     });
 
-    // ================= 2. 授权登录逻辑 =================
-    btnAuthLogin.addEventListener('click', () => {
+    const VALID_ACCOUNTS = [
+        { account: "admin", password: "chaulede" },
+        { account: "carrotluo", password: "abc123" },
+        { account: "开场白", password: "123456" },
+        ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
+    ];
+
+    const authAccount = document.getElementById('authAccount');
+    const authPassword = document.getElementById('authPassword');
+    const rememberMe = document.getElementById('rememberMe');
+
+    document.getElementById('btnAuthLogin').addEventListener('click', () => {
         const acc = authAccount.value.trim();
         const pwd = authPassword.value.trim();
         if (!acc || !pwd) { alert("请输入账号和密码！"); return; }
@@ -402,15 +458,14 @@
         const isValid = VALID_ACCOUNTS.some(item => item.account === acc && item.password === pwd);
 
         if (isValid) {
-            authOverlay.style.display = 'none';
+            document.getElementById('authOverlay').style.display = 'none';
+            const appContent = document.getElementById('appContent');
             appContent.classList.remove('hidden');
             appContent.classList.add('flex');
             
-            if (rememberMe.checked) {
-                localStorage.setItem('teacher_whiteboard_auth', 'true');
-            } else {
-                localStorage.removeItem('teacher_whiteboard_auth');
-            }
+            if (rememberMe.checked) localStorage.setItem('teacher_whiteboard_auth', 'true');
+            else localStorage.removeItem('teacher_whiteboard_auth');
+            
             try { initApp(); } catch (err) { console.warn("初始化提示：", err); }
             setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
         } else {
@@ -420,11 +475,14 @@
     });
 
     authAccount.addEventListener('keypress', (e) => { if (e.key === 'Enter') authPassword.focus(); });
-    authPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') btnAuthLogin.click(); });
+    authPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('btnAuthLogin').click(); });
 
-
-    // ================= 3. 系统核心功能初始化 =================
     let appInitialized = false;
+
+    function escapeHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     async function callAI(prompt, systemInstruction = "你是一个专业的国际中文与多国语言教学助手。", imageBase64 = null) {
         const apiKey = document.getElementById('apiKey').value.trim();
@@ -432,11 +490,9 @@
 
         if (!apiKey) { alert('请先在右侧面板填入您的 API Key！'); throw new Error('未填写 API Key'); }
 
-        if (imageBase64) {
-            if (provider !== 'qwen') {
-                provider = 'qwen';
-                document.getElementById('modelProvider').value = 'qwen';
-            }
+        if (imageBase64 && provider !== 'qwen') {
+            provider = 'qwen';
+            document.getElementById('modelProvider').value = 'qwen';
         }
 
         if (provider === 'claude') {
@@ -463,25 +519,14 @@
             modelName = imageBase64 ? "qwen-vl-max" : "qwen-max"; 
         }
 
-        let userContent;
-        if (imageBase64) {
-            userContent = [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: imageBase64 } }
-            ];
-        } else {
-            userContent = prompt;
-        }
+        let userContent = imageBase64 ? [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: imageBase64 } }] : prompt;
 
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
                 model: modelName, 
-                messages: [
-                    { role: "system", content: systemInstruction }, 
-                    { role: "user", content: userContent }
-                ], 
+                messages: [{ role: "system", content: systemInstruction }, { role: "user", content: userContent }], 
                 temperature: 0.3
             })
         });
@@ -492,10 +537,7 @@
 
     function getImageFromBoard() {
         const img = document.querySelector('#whiteboardContent img');
-        if (img && img.src) {
-            return img.src;
-        }
-        return null;
+        return img && img.src ? img.src : null;
     }
 
     function initApp() {
@@ -509,15 +551,12 @@
         } catch(e) {}
         
         const sidebarPanel = document.getElementById('sidebarPanel');
-        const btnCollapseSidebar = document.getElementById('btnCollapseSidebar');
-        const btnExpandSidebar = document.getElementById('btnExpandSidebar');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
         const whiteboard = document.getElementById('whiteboardContent');
         const scrollContainer = document.getElementById('whiteboardScrollContainer');
         const innerWrapper = document.getElementById('whiteboardInnerWrapper');
 
-        // 监听白板粘贴事件
         whiteboard.addEventListener('paste', function(e) {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             for (let index in items) {
@@ -547,20 +586,20 @@
         
         function toggleSidebar(show) {
             if (show) {
-                sidebarPanel.classList.remove('md:w-0', 'md:opacity-0', 'md:overflow-hidden', 'md:ml-[-2rem]');
-                sidebarPanel.classList.add('w-full', 'md:w-80');
-                btnExpandSidebar.classList.add('hidden');
+                sidebarPanel.classList.remove('md:w-0', 'md:p-0', 'md:m-0', 'md:border-0', 'md:opacity-0', 'md:overflow-hidden');
+                sidebarPanel.classList.add('w-full', 'md:w-80', 'p-5', 'border', 'opacity-100');
+                document.getElementById('btnExpandSidebar').classList.add('hidden');
                 if (typeof isDrawMode !== 'undefined' && isDrawMode) setTimeout(resizeCanvas, 310);
             } else {
-                sidebarPanel.classList.add('md:w-0', 'md:opacity-0', 'md:overflow-hidden', 'md:ml-[-2rem]');
-                sidebarPanel.classList.remove('w-full', 'md:w-80');
-                btnExpandSidebar.classList.remove('hidden');
+                sidebarPanel.classList.add('md:w-0', 'md:p-0', 'md:m-0', 'md:border-0', 'md:opacity-0', 'md:overflow-hidden');
+                sidebarPanel.classList.remove('w-full', 'md:w-80', 'p-5', 'border', 'opacity-100');
+                document.getElementById('btnExpandSidebar').classList.remove('hidden');
                 if (typeof isDrawMode !== 'undefined' && isDrawMode) setTimeout(resizeCanvas, 310);
             }
         }
 
-        btnCollapseSidebar.addEventListener('click', () => toggleSidebar(false));
-        btnExpandSidebar.addEventListener('click', () => toggleSidebar(true));
+        document.getElementById('btnCollapseSidebar').addEventListener('click', () => toggleSidebar(false));
+        document.getElementById('btnExpandSidebar').addEventListener('click', () => toggleSidebar(true));
 
         const apiKeyInput = document.getElementById('apiKey');
         const modelProviderSelect = document.getElementById('modelProvider');
@@ -571,11 +610,9 @@
         apiKeyInput.addEventListener('input', () => localStorage.setItem('saved_apiKey', apiKeyInput.value.trim()));
         modelProviderSelect.addEventListener('change', () => localStorage.setItem('saved_modelProvider', modelProviderSelect.value));
 
-        let exerciseMarkdown = "";
-        let noteMarkdown = "";
         let currentMode = "";
-        
         let knowledgeBase = [];
+        
         document.getElementById('kbFileUpload').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -589,9 +626,10 @@
                         if (firstArray) knowledgeBase = firstArray;
                         else throw new Error("未找到有效的知识点数组");
                     }
-                    document.getElementById('kbStatus').textContent = `✅ 已加载 ${knowledgeBase.length} 个知识点`;
-                    document.getElementById('kbStatus').classList.add('text-green-600');
-                    document.getElementById('kbStatus').classList.remove('text-indigo-400');
+                    const kbStatus = document.getElementById('kbStatus');
+                    kbStatus.textContent = `✅ 已加载 ${knowledgeBase.length} 个知识点`;
+                    kbStatus.classList.add('text-green-600');
+                    kbStatus.classList.remove('text-indigo-400');
                     event.target.value = '';
                     document.getElementById('kbResults').classList.add('hidden');
                 } catch (err) { alert('解析知识库文件失败，请检查 JSON 格式：\n' + err.message); }
@@ -599,7 +637,6 @@
             reader.readAsText(file, 'UTF-8');
         });
 
-        // ================= 上传文件解析功能 =================
         document.getElementById('docFileUpload').addEventListener('change', async function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -610,14 +647,13 @@
             const fileName = file.name.toLowerCase();
 
             const renderText = (text) => {
-                let htmlText = text.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '<br>').join('');
+                let htmlText = text.split('\n').map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<br>').join('');
                 if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') {
                     htmlText = `<hr style="border: 1px dashed #cbd5e1; margin: 30px 0;"><br>` + htmlText;
                 }
                 whiteboard.innerHTML += htmlText;
                 saveHistoryImmediate();
                 scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-                // 重新调整画布高度
                 setTimeout(resizeCanvas, 100);
             };
 
@@ -670,8 +706,213 @@
                         }
                     };
                     reader.readAsArrayBuffer(file);
+                }
+                else if (fileName.endsWith('.pptx')) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            loadingText.innerText = "正在读取 PPT 文件...";
+                            if (typeof JSZip === 'undefined') throw new Error("JSZip 库未加载，无法解析 PPT。请刷新页面重试。");
+                            
+                            const zip = await JSZip.loadAsync(e.target.result);
+                            
+                            loadingText.innerText = "正在提取 PPT 内图片...";
+                            const mediaFiles = {};
+                            const mediaFolder = zip.folder('ppt/media');
+                            if (mediaFolder) {
+                                const mediaEntries = [];
+                                mediaFolder.forEach((relativePath, file) => {
+                                    if (!file.dir) mediaEntries.push({ path: relativePath, file });
+                                });
+                                for (const entry of mediaEntries) {
+                                    try {
+                                        const base64 = await entry.file.async('base64');
+                                        const ext = entry.path.split('.').pop().toLowerCase();
+                                        if (['emf', 'wmf', 'tiff'].includes(ext)) continue; 
+                                        const mime = ext === 'png' ? 'image/png' : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : 'image/png';
+                                        mediaFiles['ppt/media/' + entry.path.replace(/^.*\//, '')] = `data:${mime};base64,${base64}`;
+                                    } catch (imgErr) {}
+                                }
+                            }
+
+                            const slideEntries = [];
+                            const slidesFolder = zip.folder('ppt/slides');
+                            if (slidesFolder) {
+                                slidesFolder.forEach((relativePath, file) => {
+                                    const m = relativePath.match(/^slide(\d+)\.xml$/);
+                                    if (m && !file.dir) slideEntries.push({ num: parseInt(m[1]), file });
+                                });
+                            }
+                            slideEntries.sort((a, b) => a.num - b.num);
+                            if (slideEntries.length === 0) throw new Error("未在 PPTX 中找到任何幻灯片内容。");
+
+                            const parser = new DOMParser();
+                            const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+                            let fullHtml = '';
+
+                            for (let i = 0; i < slideEntries.length; i++) {
+                                loadingText.innerText = `正在解析第 ${i + 1} / ${slideEntries.length} 页...`;
+                                await new Promise(resolve => setTimeout(resolve, 10));
+
+                                const slideEntry = slideEntries[i];
+                                const slideXml = await slideEntry.file.async('string');
+                                const xmlDoc = parser.parseFromString(slideXml, 'text/xml');
+
+                                let slideHtml = `<div class="pptx-import" style="margin: 20px auto; padding: 30px; width: 100%; max-width: 900px; min-height: 500px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; display: flex; flex-direction: column;">`;
+                                slideHtml += `<div style="position: absolute; top: 15px; left: 20px; font-size: 12px; color: #94a3b8; font-weight: bold;">第 ${i + 1} 页</div>`;
+
+                                let hasText = false;
+
+                                const shapeNodes = xmlDoc.getElementsByTagNameNS(A_NS, 'sp');
+                                for (let s = 0; s < shapeNodes.length; s++) {
+                                    const shape = shapeNodes[s];
+                                    const txBody = shape.getElementsByTagNameNS(A_NS, 'txBody')[0];
+                                    if (!txBody) continue;
+
+                                    const paragraphs = txBody.getElementsByTagNameNS(A_NS, 'p');
+                                    if (paragraphs.length === 0) continue;
+
+                                    slideHtml += `<div style="margin-bottom: 15px; width: 100%;">`;
+                                    
+                                    for (let p = 0; p < paragraphs.length; p++) {
+                                        const pNode = paragraphs[p];
+                                        const runs = pNode.getElementsByTagNameNS(A_NS, 'r');
+                                        
+                                        let paraHtml = '';
+                                        for (let r = 0; r < runs.length; r++) {
+                                            const run = runs[r];
+                                            const textNode = run.getElementsByTagNameNS(A_NS, 't')[0];
+                                            if (!textNode) continue;
+                                            
+                                            let text = escapeHtml(textNode.textContent);
+                                            if (text.trim()) hasText = true;
+                                            
+                                            const rPr = run.getElementsByTagNameNS(A_NS, 'rPr')[0];
+                                            let fontSize = 18;
+                                            if (rPr) {
+                                                const sz = rPr.getAttribute('sz');
+                                                if (sz) fontSize = parseInt(sz) / 100 * 1.33;
+                                            }
+
+                                            let fontWeight = 'normal';
+                                            if (rPr) {
+                                                const b = rPr.getAttribute('b');
+                                                if (b === '1') fontWeight = 'bold';
+                                            }
+
+                                            paraHtml += `<span style="font-size: ${fontSize}px; font-weight: ${fontWeight}; color: #333; line-height: 1.5;">${text}</span>`;
+                                        }
+                                        
+                                        if (paraHtml) {
+                                            slideHtml += `<p style="margin: 4px 0; text-align: left;">${paraHtml}</p>`;
+                                        }
+                                    }
+                                    slideHtml += `</div>`;
+                                }
+
+                                const tblNodes = xmlDoc.getElementsByTagNameNS(A_NS, 'tbl');
+                                for (let t = 0; t < tblNodes.length; t++) {
+                                    const tbl = tblNodes[t];
+                                    const rows = tbl.getElementsByTagNameNS(A_NS, 'tr');
+                                    if (rows.length === 0) continue;
+                                    
+                                    slideHtml += `<table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 16px; color: #333;">`;
+                                    for (let r = 0; r < rows.length; r++) {
+                                        slideHtml += `<tr>`;
+                                        const cells = rows[r].getElementsByTagNameNS(A_NS, 'tc');
+                                        for (let c = 0; c < cells.length; c++) {
+                                            const cellTexts = cells[c].getElementsByTagNameNS(A_NS, 't');
+                                            let cellText = '';
+                                            for (let ct = 0; ct < cellTexts.length; ct++) {
+                                                cellText += cellTexts[ct].textContent;
+                                            }
+                                            if (cellText.trim()) hasText = true;
+                                            slideHtml += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">${escapeHtml(cellText)}</td>`;
+                                        }
+                                        slideHtml += `</tr>`;
+                                    }
+                                    slideHtml += `</table>`;
+                                }
+
+                                if (!hasText) {
+                                    const allTexts = xmlDoc.getElementsByTagNameNS(A_NS, 't');
+                                    let fallbackText = '';
+                                    for (let ft = 0; ft < allTexts.length; ft++) {
+                                        fallbackText += allTexts[ft].textContent + ' ';
+                                    }
+                                    if (fallbackText.trim()) {
+                                        slideHtml += `<div style="font-size: 18px; line-height: 1.6; color: #333;">${escapeHtml(fallbackText)}</div>`;
+                                    } else {
+                                        slideHtml += `<div style="font-size: 16px; color: #94a3b8; font-style: italic; margin-top: 20px;">（此页可能没有文字，或是纯图片图表）</div>`;
+                                    }
+                                }
+
+                                const relPath = `ppt/slides/_rels/slide${slideEntry.num}.xml.rels`;
+                                let relsXml = null;
+                                const relFile = zip.file(relPath);
+                                if (relFile) { try { relsXml = await relFile.async('string'); } catch (_) { relsXml = null; } }
+                                
+                                const imgMap = {}; 
+                                if (relsXml) {
+                                    const relDoc = parser.parseFromString(relsXml, 'text/xml');
+                                    const rels = relDoc.getElementsByTagName('Relationship');
+                                    for (let r = 0; r < rels.length; r++) {
+                                        const rel = rels[r];
+                                        const type = rel.getAttribute('Type') || '';
+                                        const target = rel.getAttribute('Target') || '';
+                                        const id = rel.getAttribute('Id');
+                                        if (type.indexOf('/image') !== -1) {
+                                            let mp = target.replace(/^\.\.\//, '');
+                                            imgMap[id] = 'ppt/' + mp;
+                                        }
+                                    }
+                                }
+
+                                const blipNodes = xmlDoc.getElementsByTagNameNS(A_NS, 'blip');
+                                const foundImgs = [];
+                                for (let b = 0; b < blipNodes.length; b++) {
+                                    const blip = blipNodes[b];
+                                    let embedId = null;
+                                    for (let attrIdx = 0; attrIdx < blip.attributes.length; attrIdx++) {
+                                        const attr = blip.attributes[attrIdx];
+                                        if (attr.localName === 'embed') { embedId = attr.value; break; }
+                                    }
+                                    if (embedId && imgMap[embedId] && mediaFiles[imgMap[embedId]]) {
+                                        foundImgs.push(mediaFiles[imgMap[embedId]]);
+                                    }
+                                }
+
+                                if (foundImgs.length > 0) {
+                                    slideHtml += `<div style="margin-top: auto; padding-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">`;
+                                    foundImgs.forEach((src) => {
+                                        slideHtml += `<img src="${src}" style="max-height: 250px; max-width: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">`;
+                                    });
+                                    slideHtml += `</div>`;
+                                }
+
+                                slideHtml += `</div>`;
+                                fullHtml += slideHtml;
+                            }
+
+                            loadingText.innerText = "正在渲染到白板...";
+                            if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') {
+                                fullHtml = `<hr style="border: 1px dashed #cbd5e1; margin: 30px 0;"><br>` + fullHtml;
+                            }
+                            whiteboard.innerHTML += fullHtml;
+                            saveHistoryImmediate();
+                            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+                            setTimeout(resizeCanvas, 100);
+                            loadingOverlay.classList.add('hidden');
+                            
+                        } catch (err) {
+                            console.error("PPT解析崩溃:", err);
+                            alert("PPT 解析失败！\n具体错误：" + err.message);
+                            loadingOverlay.classList.add('hidden');
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
                 } else {
-                    alert("不支持的文件格式，请上传 .pdf / .docx / .txt");
+                    alert("不支持的文件格式，请上传 .pdf / .docx / .pptx / .txt");
                     loadingOverlay.classList.add('hidden');
                 }
             } catch (err) { 
@@ -685,7 +926,6 @@
             document.getElementById('docFileName').textContent = "未选择文件";
         });
 
-        // ================= 检索知识点渲染 =================
         function searchKnowledge() {
             const keyword = document.getElementById('kbSearchInput').value.trim().toLowerCase();
             const resultsBox = document.getElementById('kbResults');
@@ -720,8 +960,6 @@
 
         function renderKnowledgeToBoard(kbItem) {
             let html = '';
-            
-            // 适配 JSON 字段：title, level, structure, explanation, examples
             const title = kbItem.title || kbItem.grammar_cn || '知识点';
             const levelTag = kbItem.level ? `<span style="background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; font-size:0.6em; margin-left:10px; font-weight:normal;">${kbItem.level}</span>` : '';
             
@@ -729,20 +967,16 @@
                 html += `<hr style="border: 1px dashed #cbd5e1; margin: 30px 0;"><br>`;
             }
             
-            // 1. 标题行
             html += `<h2 style="font-size:1.3em; font-weight:bold; color:#1e3a8a; margin-bottom:15px; border-bottom:2px solid #93c5fd; padding-bottom:10px;">📖 ${title} ${levelTag}</h2>`;
             
-            // 2. 句型结构
             if (kbItem.structure) {
                 html += `<p style="margin-bottom:12px;"><span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.9em;">句型结构</span> <span style="font-family:monospace; font-size:1.1em; margin-left:5px;">${kbItem.structure}</span></p>`;
             }
             
-            // 3. 用法说明
             if (kbItem.explanation) {
                 html += `<p style="margin-bottom:20px;"><span style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.9em;">用法说明</span> <span style="margin-left:5px; line-height: 1.6;">${kbItem.explanation}</span></p>`;
             }
 
-            // 4. 例句列表（强制三行显示：中文带拼音 / 全拼 / 英文）
             if (kbItem.examples && Array.isArray(kbItem.examples)) {
                 html += `<div style="margin-top:20px; margin-bottom:10px; font-weight:bold; color:#1e3a8a; font-size:1.1em;">📝 例句：</div>`;
                 kbItem.examples.forEach(ex => {
@@ -758,38 +992,34 @@
                         }
                     }
                     
-                    // 三行结构
                     html += `<div class="triple-line">`;
-                    html += `<div class="head-zh">${lineHtml}</div>`; // 中文（带拼音）
-                    if (ex.pinyin) {
-                        html += `<div class="py">${ex.pinyin}</div>`; // 拼音
-                    }
-                    if (ex.en) {
-                        html += `<div class="en">${ex.en}</div>`; // 英文
-                    }
+                    html += `<div class="head-zh">${lineHtml}</div>`;
+                    if (ex.pinyin) html += `<div class="py">${ex.pinyin}</div>`;
+                    if (ex.en) html += `<div class="en">${ex.en}</div>`;
                     html += `</div>`;
                 });
             }
 
-            whiteboard.innerHTML = whiteboard.innerHTML + html;
-            // 注意：要滚动外层容器
+            whiteboard.innerHTML += html;
             scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
             setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
         }
 
-        // ================= 历史记录 =================
         let undoStack = [], redoStack = [], isUndoRedoing = false, historyTimer = null;
+        
         function saveHistoryImmediate() {
             if (isUndoRedoing) return;
             if (undoStack.length > 0 && undoStack[undoStack.length - 1] === whiteboard.innerHTML) return;
             if (undoStack.length > 50) undoStack.shift();
             undoStack.push(whiteboard.innerHTML); redoStack = [];
         }
+        
         function saveHistoryDebounced() {
             if (isUndoRedoing) return; 
             clearTimeout(historyTimer); 
             historyTimer = setTimeout(saveHistoryImmediate, 100);
         }
+        
         saveHistoryImmediate();
         whiteboard.addEventListener('input', saveHistoryDebounced);
 
@@ -797,12 +1027,14 @@
             clearTimeout(historyTimer); saveHistoryImmediate();
             if (undoStack.length > 1) { isUndoRedoing = true; redoStack.push(undoStack.pop()); whiteboard.innerHTML = undoStack[undoStack.length - 1]; isUndoRedoing = false; setTimeout(resizeCanvas, 100); } else alert('已经是最初的状态了！');
         });
+        
         document.getElementById('btnRedo').addEventListener('click', function() {
             if (redoStack.length > 0) { isUndoRedoing = true; const nextState = redoStack.pop(); undoStack.push(nextState); whiteboard.innerHTML = nextState; isUndoRedoing = false; setTimeout(resizeCanvas, 100); } else alert('已经是最新的状态了！');
         });
 
         let currentFontSize = 24;
         whiteboard.style.fontSize = currentFontSize + 'px';
+        
         document.getElementById('btnAPlus').addEventListener('click', () => { currentFontSize = Math.min(80, currentFontSize + 2); whiteboard.style.fontSize = currentFontSize + 'px'; setTimeout(resizeCanvas, 100); });
         document.getElementById('btnAMinus').addEventListener('click', () => { currentFontSize = Math.max(14, currentFontSize - 2); whiteboard.style.fontSize = currentFontSize + 'px'; setTimeout(resizeCanvas, 100); });
         document.getElementById('btnBold').addEventListener('click', () => { document.execCommand('bold', false, null); });
@@ -812,27 +1044,39 @@
             const selection = window.getSelection(); if (!selection.rangeCount) return;
             const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
             if (!selectedText) { alert('请先用鼠标选中需要加拼音的汉字！'); return; }
-            const fragment = document.createDocumentFragment();
+            
+            const groupSpan = document.createElement('span');
+            groupSpan.className = 'pinyin-group';
+
             for (let char of selectedText) {
                 if (/[\u4e00-\u9fa5]/.test(char)) {
                     const py = (typeof window.pinyinPro !== 'undefined') ? window.pinyinPro.pinyin(char, { toneType: 'symbol' }) : '';
                     const ruby = document.createElement('ruby'); ruby.textContent = char;
                     const rt = document.createElement('rt'); rt.textContent = py; ruby.appendChild(rt);
-                    fragment.appendChild(ruby); fragment.appendChild(document.createTextNode(''));
-                } else { fragment.appendChild(document.createTextNode(char)); }
+                    groupSpan.appendChild(ruby); groupSpan.appendChild(document.createTextNode(''));
+                } else { groupSpan.appendChild(document.createTextNode(char)); }
             }
-            range.deleteContents(); range.insertNode(fragment); selection.removeAllRanges(); 
+            range.deleteContents(); range.insertNode(groupSpan); selection.removeAllRanges(); 
             setTimeout(saveHistoryImmediate, 50);
         });
 
         document.getElementById('btnClearPinyin').addEventListener('click', function() {
-            const rubies = whiteboard.querySelectorAll('ruby'); if (rubies.length === 0) { alert('白板中没有拼音注音可清除。'); return; }
-            rubies.forEach(ruby => {
-                let hanzi = ''; ruby.childNodes.forEach(node => { if (node.nodeType === Node.TEXT_NODE) hanzi += node.nodeValue; });
-                if (!hanzi) { hanzi = ruby.textContent; const rtEls = ruby.querySelectorAll('rt'); rtEls.forEach(rt => { hanzi = hanzi.replace(rt.textContent, ''); }); }
-                const textNode = document.createTextNode(hanzi); ruby.parentNode.replaceChild(textNode, ruby);
+            const groups = whiteboard.querySelectorAll('.pinyin-group');
+            if (groups.length === 0) { alert('白板中没有你手动添加的拼音可撤销。'); return; }
+            
+            const lastGroup = groups[groups.length - 1];
+            let pureHanzi = '';
+            lastGroup.querySelectorAll('ruby').forEach(ruby => {
+                ruby.childNodes.forEach(node => {
+                    if (node.nodeType === Node.TEXT_NODE) pureHanzi += node.nodeValue;
+                });
             });
-            whiteboard.normalize(); saveHistoryImmediate(); alert('✅ 已清除 ' + rubies.length + ' 个拼音注音');
+
+            const textNode = document.createTextNode(pureHanzi);
+            lastGroup.parentNode.replaceChild(textNode, lastGroup);
+            whiteboard.normalize(); 
+            saveHistoryImmediate(); 
+            alert('✅ 已撤销上一次添加的拼音');
         });
 
         document.getElementById('btnTranslate').addEventListener('click', async function() {
@@ -856,7 +1100,6 @@
             selection.removeAllRanges(); selection.addRange(newRange); setTimeout(saveHistoryImmediate, 50);
         });
 
-        // ================= AI 生成笔记 =================
         document.getElementById('btnGenNotes').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
@@ -946,7 +1189,7 @@ ${sourceText}`;
             }
 
             try {
-                noteMarkdown = await callAI(prompt, "你是一个专业的国际中文教学助手。", imageBase64);
+                const noteMarkdown = await callAI(prompt, "你是一个专业的国际中文教学助手。", imageBase64);
                 currentMode = 'note';
                 document.getElementById('modalTitle').innerText = "📚 复习笔记整理完毕";
                 
@@ -1008,15 +1251,9 @@ ${sourceText}`;
             } else {
                 return `<div style="margin-bottom:12px;">${buffer.join('<br>')}</div>`;
             }
-            let html = `<div class="triple-line">`;
-            html += `<div class="head-zh">${headZh}</div>`;
-            html += `<div class="py">${py}</div>`;
-            html += `<div class="en">${en}</div>`;
-            html += `</div>\n`;
-            return html;
+            return `<div class="triple-line"><div class="head-zh">${headZh}</div><div class="py">${py}</div><div class="en">${en}</div></div>\n`;
         }
 
-        // ================= AI 生成试题 =================
         document.getElementById('btnGenEx').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
@@ -1045,7 +1282,7 @@ ${sourceText}`;
 ${sourceText}`;
 
             try {
-                exerciseMarkdown = await callAI(prompt, "你是一个专业的国际中文命题专家。", imageBase64);
+                const exerciseMarkdown = await callAI(prompt, "你是一个专业的国际中文命题专家。", imageBase64);
                 currentMode = 'exam';
                 document.getElementById('modalTitle').innerText = "📄 AI 生成的测试题";
                 document.getElementById('examContent').innerHTML = (typeof marked !== 'undefined') ? marked.parse(exerciseMarkdown) : exerciseMarkdown;
@@ -1060,7 +1297,6 @@ ${sourceText}`;
             }
         });
 
-        // ================= 下载 / 弹窗 =================
         document.getElementById('modalDownloadBtn').addEventListener('click', function() {
             const isNote = currentMode === 'note';
             const contentHtml = document.getElementById('examContent').innerHTML;
@@ -1108,16 +1344,16 @@ ${sourceText}`;
         }
         function fallbackCopy(text) { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.select(); try { const ok = document.execCommand('copy'); alert(ok ? '已复制！' : '复制失败'); } catch (e) { alert('复制失败'); } document.body.removeChild(ta); }
 
-        // ================= 电子教鞭 =================
+        window.__wbSaveHistory = saveHistoryImmediate;
+        window.__wbResizeCanvas = resizeCanvas;
+
         const canvas = document.getElementById('drawCanvas');
         const ctx = canvas.getContext('2d');
-        const canvasWrapper = document.getElementById('canvasWrapper');
         let isDrawing = false, isDrawMode = false, penColor = '#ef4444';
         let strokes = [];
         let dpr = window.devicePixelRatio || 1;
 
         function resizeCanvas() {
-            // 获取容器撑开的真实高度
             const rect = innerWrapper.getBoundingClientRect();
             const cssW = Math.max(1, rect.width), cssH = Math.max(1, rect.height);
             dpr = window.devicePixelRatio || 1;
@@ -1136,14 +1372,12 @@ ${sourceText}`;
             });
         }
         function getPos(e) {
-            // 获取相对于内容层的位置
             const rect = canvas.getBoundingClientRect();
             return { x: (e.touches ? e.touches[0].clientX : e.clientX) - rect.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - rect.top };
         }
         function startStroke(e) {
             if (!isDrawMode) return;
             if (e.touches) e.preventDefault();
-            // 防止浏览器将画线操作误认为拖拽其他元素
             e.stopPropagation();
             e.preventDefault();
             isDrawing = true; const p = getPos(e); strokes.push({ color: penColor, points: [p] });
@@ -1186,7 +1420,6 @@ ${sourceText}`;
         window.addEventListener('resize', () => { if (isDrawMode) resizeCanvas(); });
         window.addEventListener('load', () => { if (isDrawMode) resizeCanvas(); });
         
-        // 监听内容变化，实时调整画布高度
         const observer = new MutationObserver(() => {
             if (isDrawMode) resizeCanvas();
         });
@@ -1196,6 +1429,49 @@ ${sourceText}`;
             if (confirm("确定清空白板文字？（画笔笔迹请用『清空笔迹』）")) { whiteboard.innerHTML = '<p><br></p>'; saveHistoryImmediate(); setTimeout(resizeCanvas, 100); }
         });
     }
+
+    window.clearPptFromBoard = function() {
+        const whiteboard = document.getElementById('whiteboardContent');
+        const pptNodes = whiteboard.querySelectorAll('.pptx-import');
+        
+        if (pptNodes.length === 0) {
+            alert('白板上没有可清除的 PPT 内容。');
+            return;
+        }
+        
+        if (!confirm(`确定要从白板删除全部 ${pptNodes.length} 页 PPT 内容吗？\n（老师手写的其他内容会保留）`)) {
+            return;
+        }
+        
+        pptNodes.forEach(node => {
+            let prev = node.previousSibling;
+            while (prev && prev.nodeType === Node.TEXT_NODE && !prev.textContent.trim()) {
+                prev = prev.previousSibling;
+            }
+            if (prev && prev.tagName === 'HR') {
+                const beforeHr = prev.previousSibling;
+                prev.remove();
+                if (beforeHr && beforeHr.nodeName === 'BR') beforeHr.remove();
+            }
+            node.remove();
+        });
+        
+        const fileInput = document.getElementById('docFileUpload');
+        const fileNameEl = document.getElementById('docFileName');
+        if (fileInput) fileInput.value = '';
+        if (fileNameEl) fileNameEl.textContent = '未选择文件';
+        
+        if (!whiteboard.innerText.trim()) {
+            whiteboard.innerHTML = '<p><br></p>';
+        }
+        
+        if (typeof window.__wbSaveHistory === 'function') window.__wbSaveHistory();
+        setTimeout(() => {
+            if (typeof window.__wbResizeCanvas === 'function') window.__wbResizeCanvas();
+        }, 100);
+        
+        alert('✅ 已清除白板上的 PPT 内容。');
+    };
 </script>
 </body>
 </html>

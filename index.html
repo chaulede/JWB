@@ -489,10 +489,11 @@
         { account: "开场白", password: "123456" },
         { account: "视听", password: "123456" },
         { account: "卡卡西", password: "123456" },
-        { account: "teacher", password: "mybaby" },
+        { account: "teacher", password: "840604" },
         { account: "lily", password: "123456" },
         { account: "ylps", password: "123456" },
         { account: "qgz", password: "123456" },
+        { account: "vong", password: "1984" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 
@@ -1229,6 +1230,7 @@
             setTimeout(saveHistoryImmediate, 50);
         });
 
+        // ======== 划选翻译（完美修复错行问题） ========
         document.getElementById('btnTranslate').addEventListener('click', async function() {
             const selection = window.getSelection(); if (!selection.rangeCount) return;
             const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
@@ -1243,11 +1245,33 @@
             catch (e) { translation = "(翻译失败: " + e.message + ")"; }
             btn.innerHTML = "🌐 划选翻译"; btn.disabled = false;
 
-            const block = document.createElement('div'); block.className = 'english-line'; block.innerHTML = `<span style="font-weight:bold;">[${targetLang}]</span> ${translation}`;
-            range.collapse(false); range.insertNode(block);
-            const br = document.createElement('br'); block.after(br);
-            const newRange = document.createRange(); newRange.setStartAfter(br); newRange.collapse(true);
-            selection.removeAllRanges(); selection.addRange(newRange); setTimeout(saveHistoryImmediate, 50);
+            // 创建一个全新的独立容器，防止中文和英文排版挤在一起
+            const container = document.createElement('div');
+            container.style.margin = '8px 0';
+            container.style.display = 'block';
+            
+            // 把你选中的内容（包含拼音的 DOM 节点）克隆下来放进容器
+            container.appendChild(range.cloneContents());
+
+            // 创建翻译行
+            const block = document.createElement('div'); 
+            block.className = 'english-line'; 
+            block.style.margin = '4px 0 0 0'; 
+            block.innerHTML = `<span style="font-weight:bold;">[${targetLang}]</span> ${translation}`;
+            container.appendChild(block);
+
+            // 将原选中内容替换成这个带有中英连贯排版的新容器
+            range.deleteContents(); 
+            range.insertNode(container);
+            
+            // 把光标移到新插入的容器后面
+            const newRange = document.createRange(); 
+            newRange.setStartAfter(container); 
+            newRange.collapse(true);
+            selection.removeAllRanges(); 
+            selection.addRange(newRange); 
+            
+            setTimeout(saveHistoryImmediate, 50);
         });
 
         // ======== 课堂测验 ========

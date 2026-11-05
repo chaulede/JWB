@@ -389,8 +389,12 @@
             
             <div class="border-t border-indigo-200 pt-2 mt-2">
                 <div class="flex items-center justify-between">
-                    <label class="block text-[10px] text-indigo-600">导入知识库 (.json)</label>
-                    <input type="file" id="kbFileUpload" accept=".json" class="text-[10px] text-slate-500 w-40 file:mr-1 file:py-0.5 file:px-1 file:rounded file:border-0 file:bg-indigo-100 file:text-indigo-700 cursor-pointer">
+                    <label class="block text-[10px] text-indigo-600 font-bold">📥 导入知识库 (.json)</label>
+                    <!-- 使用 label 触发隐藏的 input -->
+                    <label class="cursor-pointer bg-white border border-indigo-300 text-indigo-700 px-2 py-1 rounded text-[10px] hover:bg-indigo-50 transition">
+                        选择文件
+                        <input type="file" id="kbFileUpload" accept=".json" class="hidden">
+                    </label>
                 </div>
                 <p class="text-[10px] text-indigo-400 mt-1" id="kbStatus">尚未导入知识库</p>
             </div>
@@ -398,9 +402,13 @@
 
         <div class="bg-teal-50 p-3 rounded-lg border border-teal-200 space-y-2">
             <label class="block text-xs font-bold text-teal-800 mb-1">📂 上传上课文件 (PDF/Word/PPT/TXT)</label>
-            <div class="flex items-center gap-2">
-                <input type="file" id="docFileUpload" accept=".pdf,.docx,.txt,.pptx" class="text-[10px] text-slate-500 w-full file:mr-1 file:py-0.5 file:px-1 file:rounded file:border-0 file:bg-teal-100 file:text-teal-700 cursor-pointer">
-                <button id="btnClearDoc" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 bg-red-50 rounded" title="删除上传的文件">✖</button>
+            <div class="flex items-center justify-between gap-2">
+                <!-- 彻底修复：使用 label 触发隐藏的 input，并绝对保证不冲突 -->
+                <label class="cursor-pointer bg-white border border-teal-300 text-teal-700 px-3 py-1 rounded text-xs hover:bg-teal-50 transition font-medium shadow-sm">
+                    选择文件
+                    <input type="file" id="docFileUpload" accept=".pdf,.docx,.txt,.pptx" class="hidden">
+                </label>
+                <button id="btnClearDoc" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 bg-red-50 rounded text-xs ml-auto" title="删除上传的文件">✖</button>
             </div>
             <p id="docFileName" class="text-[10px] text-teal-600 mt-1 truncate">未选择文件</p>
         </div>
@@ -420,7 +428,7 @@
         </div>
 
         <div class="flex flex-col gap-2.5 mt-auto pt-2">
-            <!-- 新增：课堂测验按钮，位置醒目 -->
+            <!-- 课堂测验按钮，位置醒目 -->
             <button id="btnQuiz" class="w-full bg-amber-500 text-white py-2.5 rounded-lg font-bold hover:bg-amber-600 transition text-sm cursor-pointer flex justify-center items-center shadow-sm border border-amber-600">🎯 生成课堂测验 (展示在白板)</button>
             
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">📚 一键整理白板笔记</button>
@@ -471,14 +479,13 @@
     });
 
     const VALID_ACCOUNTS = [
-        { account: "admin", password: "840604" },
+        { account: "admin", password: "chaulede" },
         { account: "carrotluo", password: "abc123" },
         { account: "开场白", password: "123456" },
         { account: "视听", password: "123456" },
         { account: "卡卡西", password: "123456" },
-        { account: "teacher", password: "chaulede" },
+        { account: "teacher", password: "123456" },
         { account: "lily", password: "123456" },
-        { account: "ylps", password: "123456" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 
@@ -665,6 +672,7 @@
             reader.readAsText(file, 'UTF-8');
         });
 
+        // ====== 核心修复：优化文件读取逻辑，解决不显示内容的问题 ======
         document.getElementById('docFileUpload').addEventListener('change', async function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -674,7 +682,12 @@
             loadingText.innerText = "正在解析文档，请稍候...";
             const fileName = file.name.toLowerCase();
 
+            // 通用渲染函数：安全注入文本，防止解析阻断
             const renderText = (text) => {
+                if (!text || !text.trim()) {
+                    alert("未能从文件中提取出有效内容。");
+                    return;
+                }
                 let htmlText = text.split('\n').map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<br>').join('');
                 if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') {
                     htmlText = `<hr style="border: 1px dashed #cbd5e1; margin: 30px 0;"><br>` + htmlText;
@@ -688,7 +701,10 @@
             try {
                 if (fileName.endsWith('.txt')) {
                     const reader = new FileReader();
-                    reader.onload = (e) => { renderText(e.target.result); loadingOverlay.classList.add('hidden'); };
+                    reader.onload = (e) => { 
+                        renderText(e.target.result); 
+                        loadingOverlay.classList.add('hidden'); 
+                    };
                     reader.readAsText(file, 'UTF-8');
                 }
                 else if (fileName.endsWith('.docx')) {
@@ -721,13 +737,8 @@
                                 });
                                 fullText += pageText + "\n";
                             }
-                            if (!fullText.trim()) {
-                                alert("❌ 提取失败：该 PDF 可能是纯图片扫描版，里面没有可提取的真实文字。");
-                                loadingOverlay.classList.add('hidden');
-                            } else {
-                                renderText(fullText.replace(/\n{3,}/g, '\n\n'));
-                                loadingOverlay.classList.add('hidden');
-                            }
+                            renderText(fullText.replace(/\n{3,}/g, '\n\n'));
+                            loadingOverlay.classList.add('hidden');
                         } catch (err) {
                             alert("PDF 解析引擎崩溃：\n" + err.message);
                             loadingOverlay.classList.add('hidden');

@@ -6,10 +6,10 @@
 <title>中文网课互动白板 - 商业授权版</title>
 
 <script src="https://cdn.bootcdn.net/ajax/libs/pinyin-pro/3.16.0/index.js"></script>
-<script src="https://cdn.bootcdn.net/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-<script src="https://cdn.bootcdn.net/ajax/libs/mammoth/1.4.16/mammoth.browser.min.js"></script>
-<script src="https://cdn.bootcdn.net/ajax/libs/marked/4.3.0/marked.min.js"></script>
-<script src="https://cdn.bootcdn.net/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.16/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
     /* ========== 提取自 Tailwind 的基础样式 ========== */
@@ -133,6 +133,7 @@
     .bg-red-50 { background-color: #fef2f2; }
     .bg-red-100 { background-color: #fee2e2; }
     .bg-amber-50 { background-color: #fffbeb; }
+    .bg-amber-500 { background-color: #f59e0b; }
     .bg-emerald-600 { background-color: #059669; }
     .bg-emerald-700 { background-color: #047857; }
     .bg-indigo-700 { background-color: #4338ca; }
@@ -199,12 +200,14 @@
     .auth-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 90%; }
     #whiteboardScrollContainer { position: absolute; inset: 0; overflow: auto; z-index: 10; }
     #whiteboardInnerWrapper { position: relative; min-height: 100%; width: 100%; }
-    #whiteboardContent { font-family: 'KaiTi', '楷体', 'STKaiti', 'Kaiti SC', 'Songti SC', 'PingFang SC', 'Microsoft YaHei', serif; line-height: 3.5; outline: none; word-break: break-word; padding: 20px; position: relative; z-index: 2; }
+    #whiteboardContent { font-family: 'KaiTi', '楷体', 'STKaiti', 'Kaiti SC', 'Songti SC', 'PingFang SC', 'Microsoft YaHei', serif; line-height: 2.8; outline: none; word-break: break-word; padding: 20px; position: relative; z-index: 2; }
     #drawCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; touch-action: none; }
     #drawCanvas.active { pointer-events: auto; cursor: crosshair; }
     .pasted-image { max-width: 90%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 10px 0; display: block; }
+    
     ruby { ruby-align: center; margin: 0 4px; font-size: 1em; white-space: nowrap; }
-    rt { font-size: 0.8em !important; color: #1d4ed8 !important; font-family: 'Arial', 'Helvetica', sans-serif !important; font-weight: bold !important; margin-bottom: 2px; line-height: 1.1; }
+    rt { font-size: 0.8em !important; color: #1d4ed8 !important; font-family: 'Arial', sans-serif !important; font-weight: bold !important; margin-bottom: 2px; line-height: 1.1; }
+    
     .english-line { display: block !important; font-size: 0.85em !important; color: #64748b; font-family: 'Arial', sans-serif; font-style: italic; border-left: 3px solid #cbd5e1; padding-left: 8px; margin: 8px 0 20px 0 !important; line-height: 1.4 !important; width: 100%; }
     .toolbar-btn { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 6px 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; cursor: pointer; font-weight: 500; transition: all 0.2s; }
     .toolbar-btn:hover { background-color: #e2e8f0; }
@@ -228,7 +231,6 @@
     .grammar-point { margin-top: 20px; margin-bottom: 10px; font-weight: bold; font-size: 1.1em; color: #1d4ed8; }
     .grammar-usage { margin-bottom: 15px; color: #475569; line-height: 1.8; }
 
-    /* ====== 关键修改：三行对照改成 em 相对单位 ====== */
     .triple-line { display: flex; flex-direction: column; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px dashed #f1f5f9; position: relative; }
     .triple-line .head-zh { color: #1d4ed8; font-size: 1.05em; font-weight: bold; margin-bottom: 6px; }
     .triple-line .py { color: #64748b; font-style: italic; font-family: 'Arial', sans-serif; font-size: 0.92em; margin-bottom: 4px; padding-left: 20px; }
@@ -243,14 +245,35 @@
     .markdown-body ul { list-style-type: disc; padding-left: 20px; margin-bottom: 15px; }
     .sidebar-transition { transition: all 0.3s ease-in-out; }
 
-    /* ====== 知识点字号缩放：所有知识点内容用 em 相对 #whiteboardContent ====== */
-    .kb-rendered { font-size: 1em; }
-    .kb-rendered h2 { font-size: 1.3em; }
-    .kb-rendered .kb-structure,
-    .kb-rendered .kb-explanation { font-size: 1em; }
-    .kb-rendered .kb-label { font-size: 0.9em; }
-    .kb-rendered .kb-example-title { font-size: 1.1em; }
-    .kb-rendered .kb-level-tag { font-size: 0.6em; }
+    /* ====== 手动加拼音专用排版：完美对齐、行高紧凑、增加左右间距 ====== */
+    .py-box {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        vertical-align: bottom;
+        margin: 0 6px; /* 增加左右间距，防止挨得太近 */
+        line-height: 1;
+        white-space: pre;
+        position: relative;
+        top: -0.2em; /* 整体向上微调，让拼音和汉字更贴合 */
+    }
+    .py-box .py-top {
+        font-size: 0.55em; /* 稍微缩小拼音，避免超出汉字宽度 */
+        font-family: 'Arial', sans-serif;
+        color: #1d4ed8;
+        font-weight: bold;
+        white-space: nowrap;
+        margin-bottom: 0.2em; /* 拼音和汉字的微小间距 */
+    }
+    .py-box .py-bottom {
+        font-size: 1em;
+    }
+
+    /* ====== 课堂测验白板排版专用 ====== */
+    .quiz-board { margin-top: 10px; }
+    .quiz-board h2 { font-size: 1.3em; font-weight: bold; color: #1e3a8a; border-bottom: 2px dashed #93c5fd; padding-bottom: 10px; margin-bottom: 20px; }
+    .quiz-board h3 { font-size: 1.1em; font-weight: bold; color: #b45309; margin-top: 20px; margin-bottom: 10px; }
+    .quiz-board p { margin-bottom: 15px; line-height: 2.2; }
 </style>
 </head>
 <body>
@@ -304,7 +327,6 @@
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
                 <button id="btnAddPinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold">✨ 划选加拼音</button>
-                <button id="btnClearPinyin" class="toolbar-btn bg-blue-50 text-blue-800 border-blue-200 font-bold">↩️ 撤销拼音</button>
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
                         <option value="English">英语 (English)</option>
@@ -322,8 +344,6 @@
                     <button id="btnTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer">🌐 划选翻译</button>
                 </div>
                 <button id="btnUndo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↩️ 撤销</button>
-                <button id="btnRedo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">⏭️ 还原</button>
-                <button id="btnClear" class="toolbar-btn bg-red-50 text-red-700 border-red-200">🗑️ 清空</button>
             </div>
         </div>
 
@@ -389,19 +409,21 @@
             <div>
                 <label class="block text-xs font-medium text-slate-700 mb-1">🤖 AI 模型</label>
                 <select id="modelProvider" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white">
-                    <option value="qwen" selected>千问 (qwen-max)</option>
-                    <option value="deepseek">DeepSeek (deepseek-chat)</option>
+                    <option value="deepseek" selected>DeepSeek (deepseek-chat)</option>
                     <option value="claude">Claude (claude-3-5-haiku)</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-slate-700 mb-1">🔑 API Key (识图请用千问)</label>
+                <label class="block text-xs font-medium text-slate-700 mb-1">🔑 API Key</label>
                 <input type="password" id="apiKey" placeholder="sk-..." class="w-full border border-slate-300 rounded-lg p-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white">
             </div>
         </div>
 
         <div class="flex flex-col gap-2.5 mt-auto pt-2">
-            <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition text-sm cursor-pointer flex justify-center items-center">📚 一键整理白板笔记</button>
+            <!-- 新增：课堂测验按钮，位置醒目 -->
+            <button id="btnQuiz" class="w-full bg-amber-500 text-white py-2.5 rounded-lg font-bold hover:bg-amber-600 transition text-sm cursor-pointer flex justify-center items-center shadow-sm border border-amber-600">🎯 生成课堂测验 (展示在白板)</button>
+            
+            <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">📚 一键整理白板笔记</button>
             <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1.5 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载复习笔记 (Word)</button>
             <button id="btnGenEx" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">✍️ 生成全套测试题</button>
             <button id="btnDownloadEx" class="hidden w-full bg-indigo-700 text-white py-1.5 rounded-lg text-xs hover:bg-indigo-800 transition cursor-pointer">📥 下载测试题 (Word)</button>
@@ -456,6 +478,7 @@
         { account: "卡卡西", password: "123456" },
         { account: "teacher", password: "chaulede" },
         { account: "lily", password: "123456" },
+        { account: "ylps", password: "123456" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 
@@ -502,10 +525,10 @@
         let provider = document.getElementById('modelProvider').value;
 
         if (!apiKey) { alert('请先在右侧面板填入您的 API Key！'); throw new Error('未填写 API Key'); }
-
-        if (imageBase64 && provider !== 'qwen') {
-            provider = 'qwen';
-            document.getElementById('modelProvider').value = 'qwen';
+        
+        if (imageBase64) {
+            alert("当前选择的 AI 模型不支持图片解析，请使用文字输入。");
+            throw new Error('模型不支持识图');
         }
 
         if (provider === 'claude') {
@@ -523,23 +546,15 @@
             return (data.content || []).map(b => b.text || '').join('').trim();
         }
 
-        let url = "", modelName = "";
-        if (provider === 'deepseek') { 
-            url = "https://api.deepseek.com/chat/completions"; 
-            modelName = "deepseek-chat"; 
-        } else { 
-            url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"; 
-            modelName = imageBase64 ? "qwen-vl-max" : "qwen-max"; 
-        }
-
-        let userContent = imageBase64 ? [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: imageBase64 } }] : prompt;
+        let url = "https://api.deepseek.com/chat/completions"; 
+        let modelName = "deepseek-chat"; 
 
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
                 model: modelName, 
-                messages: [{ role: "system", content: systemInstruction }, { role: "user", content: userContent }], 
+                messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }], 
                 temperature: 0.3
             })
         });
@@ -944,12 +959,20 @@
             const resultsBox = document.getElementById('kbResults');
             if (!keyword) { resultsBox.classList.add('hidden'); return; }
             if (knowledgeBase.length === 0) { alert('请先导入知识库文件 (.json)！'); return; }
+            
             const results = knowledgeBase.filter(item => {
-                const titleText = (item.title || item.grammar_cn || '').toLowerCase();
-                const titleEn = (item.grammar_en || '').toLowerCase();
-                const tagsMatch = item.tags && item.tags.some(tag => tag.toLowerCase().includes(keyword));
-                return titleText.includes(keyword) || titleEn.includes(keyword) || tagsMatch;
+                if (!item || typeof item !== 'object') return false;
+                const titleText = (item.title || item.grammar_cn || item.name || item.word || item.keyword || '').toString().toLowerCase();
+                const titleEn = (item.grammar_en || item.english || '').toString().toLowerCase();
+                let tagsMatch = false;
+                if (item.tags) {
+                    const tagArr = Array.isArray(item.tags) ? item.tags : String(item.tags).split(/[,，\s]+/);
+                    tagsMatch = tagArr.some(tag => String(tag).toLowerCase().includes(keyword));
+                }
+                const fallbackMatch = JSON.stringify(item).toLowerCase().includes(keyword);
+                return titleText.includes(keyword) || titleEn.includes(keyword) || tagsMatch || fallbackMatch;
             });
+            
             resultsBox.innerHTML = '';
             resultsBox.classList.remove('hidden');
             if (results.length === 0) {
@@ -959,9 +982,11 @@
             results.slice(0, 15).forEach((item) => {
                 const div = document.createElement('div');
                 div.className = 'kb-item';
+                const title = item.grammar_cn || item.title || item.name || item.word || item.keyword || '无标题';
+                const subTitle = item.structure || item.grammar_en || item.level || (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags) || '';
                 div.innerHTML = `
-                    <div class="kb-title">${item.title || item.grammar_cn || '无标题'}</div>
-                    <div class="kb-tags">${item.structure || item.grammar_en || item.tags?.join(', ') || ''}</div>
+                    <div class="kb-title">${title}</div>
+                    <div class="kb-tags">${subTitle}</div>
                 `;
                 div.onclick = () => renderKnowledgeToBoard(item);
                 resultsBox.appendChild(div);
@@ -971,12 +996,13 @@
         document.getElementById('btnSearchKb').addEventListener('click', searchKnowledge);
         document.getElementById('kbSearchInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchKnowledge(); });
 
-        /* ====== 关键修改：知识点渲染全部改成相对 em，并用 .kb-rendered 包裹 ====== */
+        /* ====== 关键修改：知识点渲染全部改成兼容最新字段及多例句、保留相对 em ====== */
         function renderKnowledgeToBoard(kbItem) {
             let html = '';
-            const title = kbItem.title || kbItem.grammar_cn || '知识点';
-            const levelTag = kbItem.level
-                ? `<span class="kb-level-tag" style="background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; margin-left:10px; font-weight:normal;">${kbItem.level}</span>`
+            const title = kbItem.grammar_cn || kbItem.title || kbItem.name || kbItem.word || kbItem.keyword || '知识点';
+            const subTitleText = kbItem.grammar_en || kbItem.level || '';
+            const levelTag = subTitleText
+                ? `<span class="kb-level-tag" style="background:#e2e8f0; color:#475569; padding:2px 6px; border-radius:4px; margin-left:10px; font-weight:normal;">${subTitleText}</span>`
                 : '';
             
             if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') {
@@ -986,20 +1012,23 @@
             html += `<div class="kb-rendered">`;
             html += `<h2 style="font-weight:bold; color:#1e3a8a; margin-bottom:15px; border-bottom:2px solid #93c5fd; padding-bottom:10px;">📖 ${title} ${levelTag}</h2>`;
             
-            if (kbItem.structure) {
-                html += `<p style="margin-bottom:12px;"><span class="kb-label" style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:4px; font-weight:bold;">句型结构</span> <span style="font-family:monospace; margin-left:5px;">${kbItem.structure}</span></p>`;
+            const patternText = kbItem.pattern || kbItem.structure;
+            if (patternText) {
+                html += `<p style="margin-bottom:12px;"><span class="kb-label" style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:4px; font-weight:bold;">句型结构</span> <span style="font-family:monospace; margin-left:5px;">${patternText}</span></p>`;
             }
             
-            if (kbItem.explanation) {
-                html += `<p style="margin-bottom:20px;"><span class="kb-label" style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:bold;">用法说明</span> <span style="margin-left:5px; line-height: 1.6;">${kbItem.explanation}</span></p>`;
+            const usageText = kbItem.usage || kbItem.explanation;
+            if (usageText) {
+                html += `<p style="margin-bottom:20px;"><span class="kb-label" style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:bold;">用法说明</span> <span style="margin-left:5px; line-height: 1.6;">${String(usageText).replace(/\n/g, '<br>')}</span></p>`;
             }
 
             if (kbItem.examples && Array.isArray(kbItem.examples)) {
                 html += `<div class="kb-example-title" style="margin-top:20px; margin-bottom:10px; font-weight:bold; color:#1e3a8a;">📝 例句：</div>`;
                 kbItem.examples.forEach(ex => {
                     let lineHtml = '';
-                    if (ex.zh) {
-                        for (let char of ex.zh) {
+                    const zhText = ex.zh || ex.chinese || '';
+                    if (zhText) {
+                        for (let char of zhText) {
                             if (/[\u4e00-\u9fa5]/.test(char)) { 
                                 let py = (typeof window.pinyinPro !== 'undefined') ? window.pinyinPro.pinyin(char, { toneType: 'symbol' }) : '';
                                 lineHtml += `<ruby>${char}<rt>${py}</rt></ruby>`; 
@@ -1015,7 +1044,24 @@
                     if (ex.en) html += `<div class="en">${ex.en}</div>`;
                     html += `</div>`;
                 });
+            } else if (kbItem.example_zh) {
+                let lineHtml = '';
+                for (let char of kbItem.example_zh) {
+                    if (/[\u4e00-\u9fa5]/.test(char)) { 
+                        let py = (typeof window.pinyinPro !== 'undefined') ? window.pinyinPro.pinyin(char, { toneType: 'symbol' }) : '';
+                        lineHtml += `<ruby>${char}<rt>${py}</rt></ruby>`; 
+                    } else { 
+                        lineHtml += char; 
+                    }
+                }
+                html += `<div class="kb-example-title" style="margin-top:20px; margin-bottom:10px; font-weight:bold; color:#1e3a8a;">📝 例句：</div>`;
+                html += `<div class="triple-line">`;
+                html += `<div class="head-zh">${lineHtml}</div>`;
+                if (kbItem.example_pinyin) html += `<div class="py">${kbItem.example_pinyin}</div>`;
+                if (kbItem.example_en) html += `<div class="en">${kbItem.example_en}</div>`;
+                html += `</div>`;
             }
+            
             html += `</div>`;
 
             whiteboard.innerHTML += html;
@@ -1023,13 +1069,13 @@
             setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
         }
 
-        let undoStack = [], redoStack = [], isUndoRedoing = false, historyTimer = null;
+        let undoStack = [], isUndoRedoing = false, historyTimer = null;
         
         function saveHistoryImmediate() {
             if (isUndoRedoing) return;
             if (undoStack.length > 0 && undoStack[undoStack.length - 1] === whiteboard.innerHTML) return;
             if (undoStack.length > 50) undoStack.shift();
-            undoStack.push(whiteboard.innerHTML); redoStack = [];
+            undoStack.push(whiteboard.innerHTML); 
         }
         
         function saveHistoryDebounced() {
@@ -1043,22 +1089,23 @@
 
         document.getElementById('btnUndo').addEventListener('click', function() {
             clearTimeout(historyTimer); saveHistoryImmediate();
-            if (undoStack.length > 1) { isUndoRedoing = true; redoStack.push(undoStack.pop()); whiteboard.innerHTML = undoStack[undoStack.length - 1]; isUndoRedoing = false; setTimeout(resizeCanvas, 100); } else alert('已经是最初的状态了！');
-        });
-        
-        document.getElementById('btnRedo').addEventListener('click', function() {
-            if (redoStack.length > 0) { isUndoRedoing = true; const nextState = redoStack.pop(); undoStack.push(nextState); whiteboard.innerHTML = nextState; isUndoRedoing = false; setTimeout(resizeCanvas, 100); } else alert('已经是最新的状态了！');
+            if (undoStack.length > 1) { 
+                isUndoRedoing = true; 
+                undoStack.pop(); // 把当前状态丢掉
+                whiteboard.innerHTML = undoStack[undoStack.length - 1]; 
+                isUndoRedoing = false; 
+                setTimeout(resizeCanvas, 100); 
+            } else {
+                alert('已经是最初的状态了！');
+            }
         });
 
         let currentFontSize = 24;
         whiteboard.style.fontSize = currentFontSize + 'px';
 
-        /* ====== 关键修改：A+/A- 同时刷新已渲染知识点的相对字号 ====== */
         function applyFontSize() {
             whiteboard.style.fontSize = currentFontSize + 'px';
-            // 清掉知识点内部可能存在的内联 px 干扰，让 em 继承生效
             whiteboard.querySelectorAll('.kb-rendered *').forEach(el => {
-                // 只清除那些被写成固定 px 的 font-size，保留 em 相对值
                 if (el.style && el.style.fontSize && /px/.test(el.style.fontSize)) {
                     el.style.fontSize = '';
                 }
@@ -1077,43 +1124,41 @@
         document.getElementById('btnBold').addEventListener('click', () => { document.execCommand('bold', false, null); });
         document.getElementById('btnRed').addEventListener('click', () => { document.execCommand('foreColor', false, '#ef4444'); });
 
+        // ======== 核心修改：使用自定义绝对定位完美对齐拼音与汉字 ========
         document.getElementById('btnAddPinyin').addEventListener('click', function() {
             const selection = window.getSelection(); if (!selection.rangeCount) return;
             const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
             if (!selectedText) { alert('请先用鼠标选中需要加拼音的汉字！'); return; }
             
-            const groupSpan = document.createElement('span');
-            groupSpan.className = 'pinyin-group';
+            const wrapper = document.createElement('span');
+            wrapper.className = 'pinyin-group';
+            wrapper.style.display = 'inline-block';
 
             for (let char of selectedText) {
                 if (/[\u4e00-\u9fa5]/.test(char)) {
                     const py = (typeof window.pinyinPro !== 'undefined') ? window.pinyinPro.pinyin(char, { toneType: 'symbol' }) : '';
-                    const ruby = document.createElement('ruby'); ruby.textContent = char;
-                    const rt = document.createElement('rt'); rt.textContent = py; ruby.appendChild(rt);
-                    groupSpan.appendChild(ruby); groupSpan.appendChild(document.createTextNode(''));
-                } else { groupSpan.appendChild(document.createTextNode(char)); }
+                    
+                    // 使用自定义的 div 结构生成绝对对齐的小方块
+                    const box = document.createElement('span');
+                    box.className = 'py-box';
+                    
+                    const topPy = document.createElement('span');
+                    topPy.className = 'py-top';
+                    topPy.textContent = py;
+                    
+                    const bottomZh = document.createElement('span');
+                    bottomZh.className = 'py-bottom';
+                    bottomZh.textContent = char;
+                    
+                    box.appendChild(topPy);
+                    box.appendChild(bottomZh);
+                    wrapper.appendChild(box);
+                } else { 
+                    wrapper.appendChild(document.createTextNode(char)); 
+                }
             }
-            range.deleteContents(); range.insertNode(groupSpan); selection.removeAllRanges(); 
+            range.deleteContents(); range.insertNode(wrapper); selection.removeAllRanges(); 
             setTimeout(saveHistoryImmediate, 50);
-        });
-
-        document.getElementById('btnClearPinyin').addEventListener('click', function() {
-            const groups = whiteboard.querySelectorAll('.pinyin-group');
-            if (groups.length === 0) { alert('白板中没有你手动添加的拼音可撤销。'); return; }
-            
-            const lastGroup = groups[groups.length - 1];
-            let pureHanzi = '';
-            lastGroup.querySelectorAll('ruby').forEach(ruby => {
-                ruby.childNodes.forEach(node => {
-                    if (node.nodeType === Node.TEXT_NODE) pureHanzi += node.nodeValue;
-                });
-            });
-
-            const textNode = document.createTextNode(pureHanzi);
-            lastGroup.parentNode.replaceChild(textNode, lastGroup);
-            whiteboard.normalize(); 
-            saveHistoryImmediate(); 
-            alert('✅ 已撤销上一次添加的拼音');
         });
 
         document.getElementById('btnTranslate').addEventListener('click', async function() {
@@ -1135,6 +1180,68 @@
             const br = document.createElement('br'); block.after(br);
             const newRange = document.createRange(); newRange.setStartAfter(br); newRange.collapse(true);
             selection.removeAllRanges(); selection.addRange(newRange); setTimeout(saveHistoryImmediate, 50);
+        });
+
+        // ======== 新增：课堂测验直接生成到白板 ========
+        document.getElementById('btnQuiz').addEventListener('click', async function() {
+            const apiKey = apiKeyInput.value.trim(); 
+            let sourceText = whiteboard.innerText.trim();
+            const imageBase64 = getImageFromBoard();
+
+            if (!sourceText && !imageBase64) { alert('白板内容为空，无法生成测验！'); return; }
+            if (!apiKey) { alert('必须填入 API Key！'); return; }
+
+            const btn = this; const originalText = btn.innerHTML;
+            btn.innerHTML = `<span class="loader"></span> 正在出题...`; 
+            btn.disabled = true;
+            loadingOverlay.classList.remove('hidden');
+            loadingText.innerText = "AI 正在根据白板内容生成课堂测验...";
+
+            // 针对课堂测验的高度定制 Prompt
+            const prompt = `你是一位国际中文教师，现在需要针对刚上完的内容给学生做一次“当堂小测验”。
+【任务要求】
+根据提供的【白板语料】，提取核心词汇和语法，生成 5-8 道针对性的短平快练习题。
+【题型限制】
+只使用以下三种题型（混合出题）：
+1. 用所给词语填空（给2-3个词，留空）
+2. 组词（给一个字，留横线写词）
+3. 连词成句（给几个打乱的词，留横线写句子）
+【排版要求】
+1. 严格按照 Markdown 列表格式输出，带有序号。
+2. 绝对不要在题目中直接给出答案，必须留出作答空间！
+3. 填空题用“______”表示；组词题用“字 → ______”；连词成句用“词A / 词B / 词C → _________________”。
+4. 不要输出多余的寒暄和讲解，直接输出题目。
+
+【白板语料】
+${sourceText}`;
+
+            try {
+                const quizMarkdown = await callAI(prompt, "你是一个专业的国际中文命题专家。", imageBase64);
+                
+                // 解析并插入白板
+                const quizHtml = marked.parse(quizMarkdown);
+                
+                let html = '';
+                if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') {
+                    html += `<hr style="border: 1px dashed #cbd5e1; margin: 40px 0;"><br>`;
+                }
+                
+                html += `<div class="quiz-board">`;
+                html += `<h2>📝 课堂测验 (当堂检测)</h2>`;
+                html += quizHtml;
+                html += `</div>`;
+
+                whiteboard.innerHTML += html;
+                scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+                setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
+
+            } catch (e) { 
+                alert("生成测验失败：" + e.message); 
+            } finally { 
+                btn.innerHTML = originalText; 
+                btn.disabled = false; 
+                loadingOverlay.classList.add('hidden');
+            }
         });
 
         document.getElementById('btnGenNotes').addEventListener('click', async function() {
@@ -1461,10 +1568,6 @@ ${sourceText}`;
             if (isDrawMode) resizeCanvas();
         });
         observer.observe(whiteboard, { childList: true, subtree: true, characterData: true });
-
-        document.getElementById('btnClear').addEventListener('click', function() {
-            if (confirm("确定清空白板文字？（画笔笔迹请用『清空笔迹』）")) { whiteboard.innerHTML = '<p><br></p>'; saveHistoryImmediate(); setTimeout(resizeCanvas, 100); }
-        });
     }
 
     window.clearPptFromBoard = function() {

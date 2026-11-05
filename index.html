@@ -467,6 +467,7 @@
         if (typeof mammoth === 'undefined') console.warn("⚠️ Mammoth.js 未加载");
         if (typeof pinyinPro === 'undefined') console.warn("⚠️ pinyin-pro 未加载");
 
+        // 修复登录状态检测：去掉可能导致误判的逻辑，确保没有记住状态时必定展示登录框
         const savedAuth = localStorage.getItem('teacher_whiteboard_auth');
         if (savedAuth === 'true') {
             document.getElementById('authOverlay').style.display = 'none';
@@ -484,9 +485,10 @@
         { account: "开场白", password: "123456" },
         { account: "视听", password: "123456" },
         { account: "卡卡西", password: "123456" },
-        { account: "teacher", password: "chaule" },
+        { account: "teacher", password: "chaulede" },
         { account: "lily", password: "123456" },
         { account: "ylps", password: "123456" },
+        { account: "baby", password: "123456" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 

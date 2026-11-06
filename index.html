@@ -431,6 +431,7 @@
                 <select id="modelProvider" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white">
                     <option value="deepseek" selected>DeepSeek (deepseek-chat)</option>
                     <option value="claude">Claude (claude-3-5-haiku)</option>
+                    <option value="zhipu">智谱 GLM (glm-4.7-flash) 免费</option>
                 </select>
             </div>
             <div>
@@ -543,9 +544,59 @@
                   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    async function callAI(prompt, systemInstruction = "你是一个专业的国际中文与多国语言教学助手。", imageBase64 = null) {
-        const apiKey = document.getElementById('apiKey').value.trim();
+    // 免费兜底 Key 留空，你可以填入自己的智谱 API Key（完全免费）
+    const FREE_ZHIPU_KEY = ""; 
+
+    async function callAI(prompt, systemInstruction = "你是一个专业的国际中文与多国语言教学助手。", imageBase64 = null, isTranslation = false) {
+        let apiKey = document.getElementById('apiKey').value.trim();
         let provider = document.getElementById('modelProvider').value;
+
+        // 免费兜底逻辑：如果没有任何 Key，且是翻译，默认走免 Key 的公共接口
+        if (isTranslation && !apiKey) {
+            const targetLangMatch = systemInstruction.match(/翻译成([^\s，。]+)/);
+            const targetLang = targetLangMatch ? targetLangMatch[1] : 'English';
+            let sourceText = prompt.match(/"([^"]+)"$/) || prompt.match(/"([^"]+)"/);
+            sourceText = sourceText ? sourceText[1] : prompt;
+            
+            // 使用无需 Key 的 MyMemory 免费翻译 API (每天 5000 字符)
+            const langMap = { 'English': 'en', 'French': 'fr', 'Japanese': 'ja', 'Korean': 'ko', 'German': 'de', 'Italian': 'it', 'Spanish': 'es', 'Russian': 'ru', 'Thai': 'th', 'Vietnamese': 'vi', 'Indonesian': 'id' };
+            const targetCode = langMap[targetLang] || 'en';
+            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(sourceText)}&langpair=zh-CN|${targetCode}`;
+            
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`请求失败 (${res.status})`);
+                const data = await res.json();
+                if (data.responseStatus !== 200) throw new Error("免费翻译接口受限");
+                return data.responseData.translatedText;
+            } catch (e) {
+                console.warn("免费翻译失败", e);
+                alert("免费翻译额度已满或网络异常，请在右侧填入 API Key 获取高质量翻译。");
+                throw new Error("免费翻译失败");
+            }
+        }
+
+        // 如果选择了智谱，或者原本没填 Key 但填了免费兜底 Key
+        if (provider === 'zhipu' || (!apiKey && FREE_ZHIPU_KEY)) {
+            if (!apiKey) apiKey = FREE_ZHIPU_KEY;
+            if (!apiKey) { alert('请在右侧填入智谱 API Key！'); throw new Error('未填写 Key'); }
+            
+            const url = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+            const modelName = "glm-4.7-flash"; 
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }],
+                    temperature: 0.3
+                })
+            });
+            if (!res.ok) throw new Error(`智谱请求失败 (${res.status})`);
+            const data = await res.json();
+            return data.choices[0].message.content.trim();
+        }
 
         if (!apiKey) { alert('请先在右侧面板填入您的 API Key！'); throw new Error('未填写 API Key'); }
         
@@ -569,6 +620,7 @@
             return (data.content || []).map(b => b.text || '').join('').trim();
         }
 
+        // 默认 DeepSeek
         let url = "https://api.deepseek.com/chat/completions"; 
         let modelName = "deepseek-chat"; 
 
@@ -596,7 +648,6 @@
         const whiteboard = document.getElementById('whiteboardContent');
         let vocabs = [];
 
-        // 方法1：提取被加了核心词线（有下划线或者带有核心词汇class）的文字
         const markedNodes = whiteboard.querySelectorAll('.core-vocab');
         markedNodes.forEach(node => {
             const text = node.textContent.trim();
@@ -605,9 +656,7 @@
             }
         });
 
-        // 方法2：正则提取形如 "1、真诚：" / "2. 诚实：" / "3 认真 -" 的序号词汇
         const rawText = whiteboard.innerText;
-        // 匹配规则：行首（或空格后）数字 + 顿号/点/括号 + 可能的空格 + 词汇 + 冒号/破折号/横杠
         const regex = /(?:^|\n)\s*\d+[、\.\)\s]\s*([^\s：:\-\n]{1,10})\s*[：:\-]/g;
         let match;
         while ((match = regex.exec(rawText)) !== null) {
@@ -717,7 +766,6 @@
             reader.readAsText(file, 'UTF-8');
         });
 
-        // ====== 升级：从 GitHub 云端并发加载多个 JSON 文件 ======
         document.getElementById('btnLoadCloudKb').addEventListener('click', async function() {
             const files = ['A1A2.json', 'B1.json', 'B2.json', 'HSK_synonyms_all.json'];
             const btn = this;
@@ -728,9 +776,7 @@
             let allLoadedData = [];
 
             try {
-                // 并发请求这四个文件
                 const promises = files.map(fileName => {
-                    // 加上时间戳防止缓存
                     const url = `./${fileName}?t=${new Date().getTime()}`;
                     return fetch(url).then(res => {
                         if (!res.ok) throw new Error(`文件 ${fileName} 获取失败`);
@@ -740,7 +786,6 @@
 
                 const results = await Promise.all(promises);
                 
-                // 将数组合并
                 results.forEach(data => {
                     if (Array.isArray(data)) { 
                         allLoadedData = allLoadedData.concat(data); 
@@ -752,7 +797,6 @@
 
                 knowledgeBase = allLoadedData;
                 
-                // 更新状态 UI
                 const kbStatus = document.getElementById('kbStatus');
                 kbStatus.textContent = `✅ 云端多库已加载 ${knowledgeBase.length} 个知识点`;
                 kbStatus.classList.add('text-green-600');
@@ -768,7 +812,6 @@
             }
         });
 
-        // ====== 优化文件读取逻辑 ======
         document.getElementById('docFileUpload').addEventListener('change', async function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -778,7 +821,6 @@
             loadingText.innerText = "正在解析文档，请稍候...";
             const fileName = file.name.toLowerCase();
 
-            // 通用渲染函数：安全注入文本，防止解析阻断
             const renderText = (text) => {
                 if (!text || !text.trim()) {
                     alert("未能从文件中提取出有效内容。");
@@ -1103,7 +1145,6 @@
         document.getElementById('btnSearchKb').addEventListener('click', searchKnowledge);
         document.getElementById('kbSearchInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchKnowledge(); });
 
-        /* ====== 知识点渲染 ====== */
         function renderKnowledgeToBoard(kbItem) {
             let html = '';
             const title = kbItem.grammar_cn || kbItem.title || kbItem.name || kbItem.word || kbItem.keyword || '知识点';
@@ -1183,7 +1224,7 @@
             if (undoStack.length > 0 && undoStack[undoStack.length - 1] === whiteboard.innerHTML) return;
             if (undoStack.length > 50) undoStack.shift();
             undoStack.push(whiteboard.innerHTML); 
-            redoStack = []; // 有新操作时，清空还原栈
+            redoStack = []; 
         }
         
         function saveHistoryDebounced() {
@@ -1195,20 +1236,17 @@
         saveHistoryImmediate();
         whiteboard.addEventListener('input', saveHistoryDebounced);
 
-        // ======== 撤销逻辑 ========
         document.getElementById('btnUndo').addEventListener('click', function() {
             clearTimeout(historyTimer);
 
             const selection = window.getSelection();
             const boardEl = whiteboard;
 
-            // 判断选区是否落在白板内部
             function rangeInBoard(range) {
                 const c = range.commonAncestorContainer;
                 return boardEl.contains(c.nodeType === Node.TEXT_NODE ? c.parentNode : c);
             }
 
-            // 辅助：判断 range 是否与某个节点相交
             function rangeIntersectsNode(range, node) {
                 if (!node || !node.parentNode) return false;
                 const nodeRange = document.createRange();
@@ -1218,18 +1256,15 @@
                 return startsBeforeNodeEnds && endsAfterNodeStarts;
             }
 
-            // ===== 情况 A：有选中内容，且选区在白板内 =====
             if (selection && selection.rangeCount > 0 && !selection.isCollapsed && rangeInBoard(selection.getRangeAt(0))) {
                 const range = selection.getRangeAt(0);
                 const frag = range.cloneContents();
 
-                // 判断选区中是否包含特定结构
                 const hasPinyin = frag.querySelector('.py-box, ruby, rt') !== null;
                 const hasEnglish = frag.querySelector('.english-line') !== null;
                 const hasCoreVocab = frag.querySelector('.core-vocab') !== null;
 
                 if (hasPinyin || hasEnglish || hasCoreVocab) {
-                    // 记录撤销前状态到 undoStack 和 redoStack
                     if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== whiteboard.innerHTML) {
                         undoStack.push(whiteboard.innerHTML);
                     }
@@ -1237,7 +1272,6 @@
 
                     isUndoRedoing = true;
 
-                    // ---- 优先处理核心词汇下划线 ----
                     if (hasCoreVocab) {
                         const vocabNodes = [];
                         if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
@@ -1254,9 +1288,7 @@
                         });
                     }
 
-                    // ---- 处理拼音：撤销选中范围内的拼音，还原为纯汉字 ----
                     if (hasPinyin) {
-                        // 处理 .py-box（手动加拼音）：提取内部汉字，避免整体替换导致的空格/错位
                         const boxes = [];
                         if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
                             range.commonAncestorContainer.querySelectorAll('.py-box').forEach(b => boxes.push(b));
@@ -1269,13 +1301,11 @@
                             if (!rangeIntersectsNode(range, box)) return;
                             const zhNode = box.querySelector('.py-bottom');
                             const text = zhNode ? zhNode.textContent : box.textContent;
-                            // 【核心修复】：使用 span 包裹汉字替换原有节点，保留原来的行内排版和字体样式
                             const span = document.createElement('span');
                             span.textContent = text;
                             box.replaceWith(span);
                         });
 
-                        // 处理 ruby（知识点渲染的拼音）
                         const rubies = [];
                         if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
                             range.commonAncestorContainer.querySelectorAll('ruby').forEach(r => rubies.push(r));
@@ -1293,7 +1323,6 @@
                         });
                     }
 
-                    // ---- 再处理英文：删除选中范围内的英文翻译块 ----
                     if (hasEnglish) {
                         const lines = [];
                         if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
@@ -1308,7 +1337,6 @@
                         });
                     }
 
-                    // 清理因删除产生的空容器
                     const cleanupEmpty = (parent) => {
                         const empties = [];
                         parent.querySelectorAll('p, div, span').forEach(el => {
@@ -1327,16 +1355,13 @@
                     isUndoRedoing = false;
                     selection.removeAllRanges();
                     
-                    // 将局部撤销后的状态推入 undoStack 以供下次撤销或还原
                     undoStack.push(whiteboard.innerHTML);
                     setTimeout(() => { resizeCanvas(); }, 30);
                     return; 
                 }
             }
 
-            // ===== 情况 B：默认撤销上一次操作 =====
             if (undoStack.length > 0 && undoStack[undoStack.length - 1] === whiteboard.innerHTML) {
-                // 避免重复推入当前状态
                 saveHistoryImmediate();
             } else {
                 undoStack.push(whiteboard.innerHTML);
@@ -1344,7 +1369,7 @@
 
             if (undoStack.length > 1) {
                 isUndoRedoing = true;
-                redoStack.push(undoStack.pop()); // 将当前状态放入重做栈，并弹出上一个状态
+                redoStack.push(undoStack.pop()); 
                 whiteboard.innerHTML = undoStack[undoStack.length - 1];
                 isUndoRedoing = false;
                 setTimeout(resizeCanvas, 100);
@@ -1353,14 +1378,13 @@
             }
         });
 
-        // ======== 还原（重做）逻辑 ========
         document.getElementById('btnRedo').addEventListener('click', function() {
             clearTimeout(historyTimer);
             
             if (redoStack.length > 0) {
                 isUndoRedoing = true;
                 const nextState = redoStack.pop();
-                undoStack.push(nextState); // 把还原的状态放回撤销栈
+                undoStack.push(nextState);
                 whiteboard.innerHTML = nextState;
                 isUndoRedoing = false;
                 setTimeout(resizeCanvas, 100);
@@ -1393,7 +1417,6 @@
         document.getElementById('btnBold').addEventListener('click', () => { document.execCommand('bold', false, null); });
         document.getElementById('btnRed').addEventListener('click', () => { document.execCommand('foreColor', false, '#ef4444'); });
 
-        // ======== 标注核心词汇 ========
         document.getElementById('btnMarkVocab').addEventListener('click', function() {
             const selection = window.getSelection(); 
             if (!selection.rangeCount) return;
@@ -1408,7 +1431,6 @@
             range.deleteContents(); 
             range.insertNode(wrapper); 
             
-            // 把光标移到新插入的词后面
             const newRange = document.createRange(); 
             newRange.setStartAfter(wrapper); 
             newRange.collapse(true);
@@ -1418,7 +1440,6 @@
             setTimeout(saveHistoryImmediate, 50);
         });
 
-        // ======== 拼音与汉字排版 ========
         document.getElementById('btnAddPinyin').addEventListener('click', function() {
             const selection = window.getSelection(); if (!selection.rangeCount) return;
             const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
@@ -1454,18 +1475,22 @@
             setTimeout(saveHistoryImmediate, 50);
         });
 
-        // ======== 划选翻译 ========
         document.getElementById('btnTranslate').addEventListener('click', async function() {
             const selection = window.getSelection(); if (!selection.rangeCount) return;
             const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
             if (!selectedText) { alert('请先用鼠标选中需要翻译的汉字！'); return; }
             const targetLang = document.getElementById('targetLang').value;
-            const btn = this; const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) { alert('划选翻译需要先在右侧填入 API Key。'); return; }
+            const btn = this; 
+            
+            // 地道翻译 Prompt
+            const systemInstruction = `你是一位精通中文和${targetLang}的资深翻译。请将用户选中的中文翻译成${targetLang}。要求：译文必须地道、自然，符合${targetLang}母语者的表达习惯，避免生硬的直译。只输出译文，不要任何解释。`;
+            const prompt = `Translate the following Chinese text to ${targetLang}. ONLY output the translation without any extra explanation: "${selectedText}"`;
 
             btn.innerHTML = "翻译中..."; btn.disabled = true;
             let translation = "";
-            try { translation = await callAI(`Translate the following Chinese text to ${targetLang}. ONLY output the translation without any extra explanation: "${selectedText}"`, "You are a professional multilingual translator."); } 
+            try { 
+                translation = await callAI(prompt, systemInstruction, null, true); 
+            } 
             catch (e) { translation = "(翻译失败: " + e.message + ")"; }
             btn.innerHTML = "🌐 划选翻译"; btn.disabled = false;
 
@@ -1493,7 +1518,7 @@
             setTimeout(saveHistoryImmediate, 50);
         });
 
-        // ======== 课堂测验 ========
+        // ======== 课堂测验 (全覆盖出题 + 题型双语注释) ========
         document.getElementById('btnQuiz').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
@@ -1512,17 +1537,24 @@
 
             const prompt = `你是一位国际中文教师，现在需要针对刚上完的内容给学生做一次“当堂小测验”。
 【任务要求】
-根据提供的【白板语料】，提取核心词汇和语法，生成 5-8 道针对性的短平快练习题。
+根据提供的【白板语料】和【本课核心词汇】，提取核心词汇和语法，生成针对性的练习题。
 ${vocabPrompt}
-【题型限制】
-只使用以下三种题型（混合出题）：
-1. 用所给词语填空（给2-3个词，留空）
-2. 组词（给一个字，留横线写词）
-3. 连词成句（给几个打乱的词，留横线写句子）
+
+【极重要要求：全覆盖出题】
+如果上文有【本课核心词汇】列表，你必须在下面的 **每一种题型** 中，把列表里的 **每一个词汇** 都练习到！绝不能遗漏！
+
+【极重要要求：题型双语注释】
+请在题目中按以下格式标注题型标题，必须包含英文翻译，让学生明白：
+【题型一：用所给词语填空 (Fill in the blanks)】
+【题型二：组词 (Form words)】
+【题型三：连词成句 (Make sentences)】
+【题型四：词汇汉译英 (Vocabulary: Chinese to English)】
+【题型五：词汇英译汉 (Vocabulary: English to Chinese)】
+
 【排版要求】
 1. 严格按照 Markdown 列表格式输出，带有序号。
 2. 绝对不要在题目中直接给出答案，必须留出作答空间！
-3. 填空题用“______”表示；组词题用“字 → ______”；连词成句用“词A / 词B / 词C → _________________”。
+3. 填空题用“______”表示；组词题用“字 → ______”；连词成句用“词A / 词B / 词C → _________________”；词汇汉译英和英译汉题型，只出词汇不出句子，格式为：“汉译英：中文 ______” 和 “英译汉：English ______”。
 4. 不要输出多余的寒暄和讲解，直接输出题目。
 
 【白板语料】
@@ -1556,7 +1588,6 @@ ${sourceText}`;
             }
         });
 
-        // ======== 一键整理白板笔记 ========
         document.getElementById('btnGenNotes').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
@@ -1715,7 +1746,6 @@ ${sourceText}`;
             return `<div class="triple-line"><div class="head-zh">${headZh}</div><div class="py">${py}</div><div class="en">${en}</div></div>\n`;
         }
 
-        // ======== 生成全套测试题 ========
         document.getElementById('btnGenEx').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();

@@ -247,27 +247,33 @@
 
     /* ====== 手动加拼音专用排版：完美对齐、行高紧凑、增加左右间距 ====== */
     .py-box {
-        display: inline-flex;
-        flex-direction: column;
-        align-items: center;
-        vertical-align: bottom;
-        margin: 0 6px; /* 增加左右间距，防止挨得太近 */
+        display: inline-block; /* 替换 inline-flex 防止插入内容时被过度拉伸移位 */
+        text-align: center;
+        vertical-align: bottom; /* 确保底部汉字与原有文字对齐 */
+        margin: 0 4px; /* 稍微调整左右间距，更紧凑 */
         line-height: 1;
         white-space: pre;
         position: relative;
-        top: -0.2em; /* 整体向上微调，让拼音和汉字更贴合 */
+        top: 0; /* 取消原来的 top 负值，防止影响上下行高 */
     }
     .py-box .py-top {
-        font-size: 0.55em; /* 稍微缩小拼音，避免超出汉字宽度 */
+        display: block; /* 确保拼音独占一行且居中 */
+        font-size: 0.55em; 
         font-family: 'Arial', sans-serif;
         color: #1d4ed8;
         font-weight: bold;
         white-space: nowrap;
-        margin-bottom: 0.2em; /* 拼音和汉字的微小间距 */
+        margin-bottom: 0.15em; 
+        line-height: 1.2;
     }
     .py-box .py-bottom {
+        display: block; /* 确保汉字独占一行 */
         font-size: 1em;
+        line-height: 1.2;
     }
+    
+    /* 新增核心词汇下划线样式 */
+    .core-vocab { border-bottom: 2px solid #3b82f6; font-weight: bold; color: #1d4ed8; padding-bottom: 1px; }
 
     /* ====== 课堂测验白板排版专用 ====== */
     .quiz-board { margin-top: 10px; }
@@ -326,6 +332,7 @@
                 <button id="btnRed" class="toolbar-btn text-red-500 font-bold">A</button>
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
+                <button id="btnMarkVocab" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold"><u>U</u> 标注核心词汇</button>
                 <button id="btnAddPinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold">✨ 划选加拼音</button>
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
@@ -344,6 +351,7 @@
                     <button id="btnTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer">🌐 划选翻译</button>
                 </div>
                 <button id="btnUndo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↩️ 撤销</button>
+                <button id="btnRedo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↪️ 还原</button>
             </div>
         </div>
 
@@ -581,6 +589,35 @@
     function getImageFromBoard() {
         const img = document.querySelector('#whiteboardContent img');
         return img && img.src ? img.src : null;
+    }
+
+    // 核心功能：提取白板上的核心词汇（划线标注 + 序号规则识别）
+    function getCoreVocabularies() {
+        const whiteboard = document.getElementById('whiteboardContent');
+        let vocabs = [];
+
+        // 方法1：提取被加了核心词线（有下划线或者带有核心词汇class）的文字
+        const markedNodes = whiteboard.querySelectorAll('.core-vocab');
+        markedNodes.forEach(node => {
+            const text = node.textContent.trim();
+            if (text && !vocabs.includes(text)) {
+                vocabs.push(text);
+            }
+        });
+
+        // 方法2：正则提取形如 "1、真诚：" / "2. 诚实：" / "3 认真 -" 的序号词汇
+        const rawText = whiteboard.innerText;
+        // 匹配规则：行首（或空格后）数字 + 顿号/点/括号 + 可能的空格 + 词汇 + 冒号/破折号/横杠
+        const regex = /(?:^|\n)\s*\d+[、\.\)\s]\s*([^\s：:\-\n]{1,10})\s*[：:\-]/g;
+        let match;
+        while ((match = regex.exec(rawText)) !== null) {
+            const word = match[1].trim();
+            if (word && !vocabs.includes(word)) {
+                vocabs.push(word);
+            }
+        }
+
+        return vocabs;
     }
 
     function initApp() {
@@ -1139,13 +1176,14 @@
             setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
         }
 
-        let undoStack = [], isUndoRedoing = false, historyTimer = null;
+        let undoStack = [], redoStack = [], isUndoRedoing = false, historyTimer = null;
         
         function saveHistoryImmediate() {
             if (isUndoRedoing) return;
             if (undoStack.length > 0 && undoStack[undoStack.length - 1] === whiteboard.innerHTML) return;
             if (undoStack.length > 50) undoStack.shift();
             undoStack.push(whiteboard.innerHTML); 
+            redoStack = []; // 有新操作时，清空还原栈
         }
         
         function saveHistoryDebounced() {
@@ -1157,16 +1195,177 @@
         saveHistoryImmediate();
         whiteboard.addEventListener('input', saveHistoryDebounced);
 
+        // ======== 撤销逻辑 ========
         document.getElementById('btnUndo').addEventListener('click', function() {
-            clearTimeout(historyTimer); saveHistoryImmediate();
-            if (undoStack.length > 1) { 
-                isUndoRedoing = true; 
-                undoStack.pop(); // 把当前状态丢掉
-                whiteboard.innerHTML = undoStack[undoStack.length - 1]; 
-                isUndoRedoing = false; 
-                setTimeout(resizeCanvas, 100); 
+            clearTimeout(historyTimer);
+
+            const selection = window.getSelection();
+            const boardEl = whiteboard;
+
+            // 判断选区是否落在白板内部
+            function rangeInBoard(range) {
+                const c = range.commonAncestorContainer;
+                return boardEl.contains(c.nodeType === Node.TEXT_NODE ? c.parentNode : c);
+            }
+
+            // 辅助：判断 range 是否与某个节点相交
+            function rangeIntersectsNode(range, node) {
+                if (!node || !node.parentNode) return false;
+                const nodeRange = document.createRange();
+                nodeRange.selectNode(node);
+                const startsBeforeNodeEnds = range.compareBoundaryPoints(Range.END_TO_START, nodeRange) <= 0;
+                const endsAfterNodeStarts = range.compareBoundaryPoints(Range.START_TO_END, nodeRange) >= 0;
+                return startsBeforeNodeEnds && endsAfterNodeStarts;
+            }
+
+            // ===== 情况 A：有选中内容，且选区在白板内 =====
+            if (selection && selection.rangeCount > 0 && !selection.isCollapsed && rangeInBoard(selection.getRangeAt(0))) {
+                const range = selection.getRangeAt(0);
+                const frag = range.cloneContents();
+
+                // 判断选区中是否包含特定结构
+                const hasPinyin = frag.querySelector('.py-box, ruby, rt') !== null;
+                const hasEnglish = frag.querySelector('.english-line') !== null;
+                const hasCoreVocab = frag.querySelector('.core-vocab') !== null;
+
+                if (hasPinyin || hasEnglish || hasCoreVocab) {
+                    // 记录撤销前状态到 undoStack 和 redoStack
+                    if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== whiteboard.innerHTML) {
+                        undoStack.push(whiteboard.innerHTML);
+                    }
+                    redoStack.push(whiteboard.innerHTML);
+
+                    isUndoRedoing = true;
+
+                    // ---- 优先处理核心词汇下划线 ----
+                    if (hasCoreVocab) {
+                        const vocabNodes = [];
+                        if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
+                            range.commonAncestorContainer.querySelectorAll('.core-vocab').forEach(b => vocabNodes.push(b));
+                        } else {
+                            const root = range.commonAncestorContainer.parentNode;
+                            if (root) root.querySelectorAll('.core-vocab').forEach(b => vocabNodes.push(b));
+                        }
+                        vocabNodes.forEach(node => {
+                            if (!rangeIntersectsNode(range, node)) return;
+                            const span = document.createElement('span');
+                            span.textContent = node.textContent;
+                            node.replaceWith(span);
+                        });
+                    }
+
+                    // ---- 处理拼音：撤销选中范围内的拼音，还原为纯汉字 ----
+                    if (hasPinyin) {
+                        // 处理 .py-box（手动加拼音）：提取内部汉字，避免整体替换导致的空格/错位
+                        const boxes = [];
+                        if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
+                            range.commonAncestorContainer.querySelectorAll('.py-box').forEach(b => boxes.push(b));
+                        } else {
+                            const root = range.commonAncestorContainer.parentNode;
+                            if (root) root.querySelectorAll('.py-box').forEach(b => boxes.push(b));
+                        }
+                        
+                        boxes.forEach(box => {
+                            if (!rangeIntersectsNode(range, box)) return;
+                            const zhNode = box.querySelector('.py-bottom');
+                            const text = zhNode ? zhNode.textContent : box.textContent;
+                            // 【核心修复】：使用 span 包裹汉字替换原有节点，保留原来的行内排版和字体样式
+                            const span = document.createElement('span');
+                            span.textContent = text;
+                            box.replaceWith(span);
+                        });
+
+                        // 处理 ruby（知识点渲染的拼音）
+                        const rubies = [];
+                        if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
+                            range.commonAncestorContainer.querySelectorAll('ruby').forEach(r => rubies.push(r));
+                        } else {
+                            const root = range.commonAncestorContainer.parentNode;
+                            if (root) root.querySelectorAll('ruby').forEach(r => rubies.push(r));
+                        }
+                        
+                        rubies.forEach(rb => {
+                            if (!rangeIntersectsNode(range, rb)) return;
+                            const zhNode = Array.from(rb.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+                            const span = document.createElement('span');
+                            span.textContent = zhNode ? zhNode.textContent : rb.textContent;
+                            rb.replaceWith(span);
+                        });
+                    }
+
+                    // ---- 再处理英文：删除选中范围内的英文翻译块 ----
+                    if (hasEnglish) {
+                        const lines = [];
+                        if (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE) {
+                            range.commonAncestorContainer.querySelectorAll('.english-line').forEach(l => lines.push(l));
+                        } else {
+                            const root = range.commonAncestorContainer.parentNode;
+                            if (root) root.querySelectorAll('.english-line').forEach(l => lines.push(l));
+                        }
+                        lines.forEach(line => {
+                            if (!rangeIntersectsNode(range, line)) return;
+                            line.remove();
+                        });
+                    }
+
+                    // 清理因删除产生的空容器
+                    const cleanupEmpty = (parent) => {
+                        const empties = [];
+                        parent.querySelectorAll('p, div, span').forEach(el => {
+                            if (el.children.length === 0 && el.textContent.trim() === '' && !el.querySelector('img')) {
+                                empties.push(el);
+                            }
+                        });
+                        empties.forEach(el => el.remove());
+                    };
+                    cleanupEmpty(whiteboard);
+                    
+                    if (whiteboard.innerText.trim() === '' && whiteboard.querySelectorAll('img').length === 0) {
+                        whiteboard.innerHTML = '<p><br></p>';
+                    }
+
+                    isUndoRedoing = false;
+                    selection.removeAllRanges();
+                    
+                    // 将局部撤销后的状态推入 undoStack 以供下次撤销或还原
+                    undoStack.push(whiteboard.innerHTML);
+                    setTimeout(() => { resizeCanvas(); }, 30);
+                    return; 
+                }
+            }
+
+            // ===== 情况 B：默认撤销上一次操作 =====
+            if (undoStack.length > 0 && undoStack[undoStack.length - 1] === whiteboard.innerHTML) {
+                // 避免重复推入当前状态
+                saveHistoryImmediate();
+            } else {
+                undoStack.push(whiteboard.innerHTML);
+            }
+
+            if (undoStack.length > 1) {
+                isUndoRedoing = true;
+                redoStack.push(undoStack.pop()); // 将当前状态放入重做栈，并弹出上一个状态
+                whiteboard.innerHTML = undoStack[undoStack.length - 1];
+                isUndoRedoing = false;
+                setTimeout(resizeCanvas, 100);
             } else {
                 alert('已经是最初的状态了！');
+            }
+        });
+
+        // ======== 还原（重做）逻辑 ========
+        document.getElementById('btnRedo').addEventListener('click', function() {
+            clearTimeout(historyTimer);
+            
+            if (redoStack.length > 0) {
+                isUndoRedoing = true;
+                const nextState = redoStack.pop();
+                undoStack.push(nextState); // 把还原的状态放回撤销栈
+                whiteboard.innerHTML = nextState;
+                isUndoRedoing = false;
+                setTimeout(resizeCanvas, 100);
+            } else {
+                alert('已经是最新的状态了，无法继续还原！');
             }
         });
 
@@ -1193,6 +1392,31 @@
         });
         document.getElementById('btnBold').addEventListener('click', () => { document.execCommand('bold', false, null); });
         document.getElementById('btnRed').addEventListener('click', () => { document.execCommand('foreColor', false, '#ef4444'); });
+
+        // ======== 标注核心词汇 ========
+        document.getElementById('btnMarkVocab').addEventListener('click', function() {
+            const selection = window.getSelection(); 
+            if (!selection.rangeCount) return;
+            const range = selection.getRangeAt(0); 
+            const selectedText = selection.toString().trim();
+            if (!selectedText) { alert('请先用鼠标选中需要标注的词汇！'); return; }
+            
+            const wrapper = document.createElement('span');
+            wrapper.className = 'core-vocab';
+            wrapper.textContent = selectedText;
+            
+            range.deleteContents(); 
+            range.insertNode(wrapper); 
+            
+            // 把光标移到新插入的词后面
+            const newRange = document.createRange(); 
+            newRange.setStartAfter(wrapper); 
+            newRange.collapse(true);
+            selection.removeAllRanges(); 
+            selection.addRange(newRange); 
+            
+            setTimeout(saveHistoryImmediate, 50);
+        });
 
         // ======== 拼音与汉字排版 ========
         document.getElementById('btnAddPinyin').addEventListener('click', function() {
@@ -1230,7 +1454,7 @@
             setTimeout(saveHistoryImmediate, 50);
         });
 
-        // ======== 划选翻译（完美修复错行问题） ========
+        // ======== 划选翻译 ========
         document.getElementById('btnTranslate').addEventListener('click', async function() {
             const selection = window.getSelection(); if (!selection.rangeCount) return;
             const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
@@ -1245,26 +1469,21 @@
             catch (e) { translation = "(翻译失败: " + e.message + ")"; }
             btn.innerHTML = "🌐 划选翻译"; btn.disabled = false;
 
-            // 创建一个全新的独立容器，防止中文和英文排版挤在一起
             const container = document.createElement('div');
             container.style.margin = '8px 0';
             container.style.display = 'block';
             
-            // 把你选中的内容（包含拼音的 DOM 节点）克隆下来放进容器
             container.appendChild(range.cloneContents());
 
-            // 创建翻译行
             const block = document.createElement('div'); 
             block.className = 'english-line'; 
             block.style.margin = '4px 0 0 0'; 
             block.innerHTML = `<span style="font-weight:bold;">[${targetLang}]</span> ${translation}`;
             container.appendChild(block);
 
-            // 将原选中内容替换成这个带有中英连贯排版的新容器
             range.deleteContents(); 
             range.insertNode(container);
             
-            // 把光标移到新插入的容器后面
             const newRange = document.createRange(); 
             newRange.setStartAfter(container); 
             newRange.collapse(true);
@@ -1279,6 +1498,8 @@
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
             const imageBase64 = getImageFromBoard();
+            const coreVocabs = getCoreVocabularies();
+            const vocabPrompt = coreVocabs.length > 0 ? `\n【本课核心词汇】请务必在出题时重点考查以下词汇：${coreVocabs.join('、')}` : '';
 
             if (!sourceText && !imageBase64) { alert('白板内容为空，无法生成测验！'); return; }
             if (!apiKey) { alert('必须填入 API Key！'); return; }
@@ -1292,6 +1513,7 @@
             const prompt = `你是一位国际中文教师，现在需要针对刚上完的内容给学生做一次“当堂小测验”。
 【任务要求】
 根据提供的【白板语料】，提取核心词汇和语法，生成 5-8 道针对性的短平快练习题。
+${vocabPrompt}
 【题型限制】
 只使用以下三种题型（混合出题）：
 1. 用所给词语填空（给2-3个词，留空）
@@ -1334,10 +1556,13 @@ ${sourceText}`;
             }
         });
 
+        // ======== 一键整理白板笔记 ========
         document.getElementById('btnGenNotes').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
             const imageBase64 = getImageFromBoard(); 
+            const coreVocabs = getCoreVocabularies();
+            const vocabPrompt = coreVocabs.length > 0 ? `\n【本课核心词汇】请务必在生成的词汇表及练习部分重点提取和展示以下词汇：${coreVocabs.join('、')}` : '';
 
             if (!apiKey) { alert('生成笔记必须填入 API Key！'); return; }
             if (!sourceText && !imageBase64) { alert('白板内容为空！请粘贴文字、截图或上传文档。'); return; }
@@ -1363,6 +1588,7 @@ ${sourceText}`;
             let prompt = "";
             if (imageBase64) {
                 prompt = `请提取图片中的所有教学文字、语法和例句。然后严格按照以下要求，生成结构化复习笔记。
+${vocabPrompt}
 【致命规则】：绝不能合并、删减或修改图片上的任何一个例句！图片上有多少句，你就必须输出多少句！绝对不能写“（严格三行对照）”之类的提示词！
 【排版要求】每个例句必须按照以下格式输出，绝对不能出现中文重复：
 1. 中文句子
@@ -1391,6 +1617,7 @@ Translation
 ...`;
             } else {
                 prompt = `你是一位拥有10年经验的国际中文教师。请严格根据白板语料生成结构化复习笔记。
+${vocabPrompt}
 【致命规则】：绝不能合并、删减或修改白板上的任何一个例句！白板上写了多少句，你就必须输出多少句！绝对不能写“（严格三行对照）”之类的提示词！
 【排版要求】每个例句必须按照以下格式输出，绝对不能出现中文重复：
 1. 中文句子
@@ -1488,10 +1715,13 @@ ${sourceText}`;
             return `<div class="triple-line"><div class="head-zh">${headZh}</div><div class="py">${py}</div><div class="en">${en}</div></div>\n`;
         }
 
+        // ======== 生成全套测试题 ========
         document.getElementById('btnGenEx').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
             const imageBase64 = getImageFromBoard();
+            const coreVocabs = getCoreVocabularies();
+            const vocabPrompt = coreVocabs.length > 0 ? `\n【本课核心词汇】请务必在考题的听力、阅读、书写等各板块中，针对以下核心词汇进行重点练习和考查：${coreVocabs.join('、')}` : '';
 
             if (!sourceText && !imageBase64) { alert('白板内容为空，请粘贴图片、上传文档或输入文字！'); return; }
             if (!apiKey) { alert('必须填入 API Key！'); return; }
@@ -1510,6 +1740,7 @@ ${sourceText}`;
             loadingOverlay.classList.remove('hidden');
 
             const prompt = `你是一个极度严格的 HSK3 命题专家。请根据提供的语料（或图片内容）生成一套测试题。
+${vocabPrompt}
 【语言要求】所有题目、选项和答案解析，都必须采用【中文】和【${detectedLang}】双语对照输出。
 【排版要求】请使用 Markdown 格式排版。每道题目、每个选项必须独立成段，段落间必须有空行！包含听力、阅读、书写三大板块。选择题请用列表形式。
 【语料】

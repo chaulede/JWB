@@ -8,7 +8,7 @@
 <script src="https://cdn.bootcdn.net/ajax/libs/pinyin-pro/3.16.0/index.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.16/mammoth.browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/marked/4.3.0/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
@@ -280,6 +280,14 @@
     .quiz-board h2 { font-size: 1.3em; font-weight: bold; color: #1e3a8a; border-bottom: 2px dashed #93c5fd; padding-bottom: 10px; margin-bottom: 20px; }
     .quiz-board h3 { font-size: 1.1em; font-weight: bold; color: #b45309; margin-top: 20px; margin-bottom: 10px; }
     .quiz-board p { margin-bottom: 15px; line-height: 2.2; }
+    
+    /* 字帖 iframe 弹窗专用样式 */
+    #worksheetModal iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: #fff;
+    }
 </style>
 </head>
 <body>
@@ -334,6 +342,9 @@
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
                 <button id="btnMarkVocab" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold"><u>U</u> 标注核心词汇</button>
                 <button id="btnAddPinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold">✨ 划选加拼音</button>
+                <!-- 新增：打开字帖生成器按钮 -->
+                <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
+                
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
                         <option value="English">英语 (English)</option>
@@ -470,6 +481,17 @@
     </div>
 </div>
 
+<!-- 字帖 Modal (尺寸撑满全屏，默认隐藏) -->
+<div id="worksheetModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 justify-center items-center">
+    <!-- 强制宽高为 95vw 和 95vh -->
+    <div class="bg-white shadow-2xl flex flex-col overflow-hidden" style="width: 95vw !important; height: 95vh !important; border-radius: 12px;">
+        <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
+            <h2 class="text-lg font-bold text-slate-800">📝 汉字笔顺描红字帖生成器</h2>
+            <button onclick="closeWorksheetModal()" class="text-slate-400 hover:text-red-500 text-2xl font-bold pb-1">&times;</button>
+        </div>
+        <iframe src="https://chaulede.github.io/ZT/" style="width: 100% !important; height: 100% !important; border: none; display: block;" allow="fullscreen"></iframe>
+    </div>
+</div>
 <script>
     window.addEventListener('DOMContentLoaded', () => {
         if (typeof JSZip === 'undefined') {
@@ -503,8 +525,8 @@
         { account: "ylps", password: "123456" },
         { account: "qgz", password: "123456" },
         { account: "vong", password: "1984" },
-        { account: "yuran", password: "123456" },
         { account: "yang", password: "123456" },
+        { account: "yuran", password: "123456" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 
@@ -1921,6 +1943,17 @@ ${sourceText}`;
             if (isDrawMode) resizeCanvas();
         });
         observer.observe(whiteboard, { childList: true, subtree: true, characterData: true });
+
+        // ====== 新增：字帖弹窗打开与关闭 ======
+        document.getElementById('btnOpenWorksheet').addEventListener('click', function() {
+            document.getElementById('worksheetModal').classList.remove('hidden');
+            document.getElementById('worksheetModal').classList.add('flex');
+        });
+
+        window.closeWorksheetModal = function() {
+            document.getElementById('worksheetModal').classList.add('hidden');
+            document.getElementById('worksheetModal').classList.remove('flex');
+        };
     }
 
     window.clearPptFromBoard = function() {

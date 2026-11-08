@@ -247,17 +247,17 @@
 
     /* ====== 手动加拼音专用排版：完美对齐、行高紧凑、增加左右间距 ====== */
     .py-box {
-        display: inline-block; /* 替换 inline-flex 防止插入内容时被过度拉伸移位 */
+        display: inline-block;
         text-align: center;
-        vertical-align: bottom; /* 确保底部汉字与原有文字对齐 */
-        margin: 0 4px; /* 稍微调整左右间距，更紧凑 */
+        vertical-align: bottom;
+        margin: 0 4px;
         line-height: 1;
         white-space: pre;
         position: relative;
-        top: 0; /* 取消原来的 top 负值，防止影响上下行高 */
+        top: 0;
     }
     .py-box .py-top {
-        display: block; /* 确保拼音独占一行且居中 */
+        display: block;
         font-size: 0.55em; 
         font-family: 'Arial', sans-serif;
         color: #1d4ed8;
@@ -267,7 +267,7 @@
         line-height: 1.2;
     }
     .py-box .py-bottom {
-        display: block; /* 确保汉字独占一行 */
+        display: block;
         font-size: 1em;
         line-height: 1.2;
     }
@@ -342,8 +342,10 @@
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
                 <button id="btnMarkVocab" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold"><u>U</u> 标注核心词汇</button>
                 <button id="btnAddPinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold">✨ 划选加拼音</button>
-                <!-- 新增：打开字帖生成器按钮 -->
+                <!-- 打开字帖生成器按钮 -->
                 <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
+                <!-- 新增：根据标记直接挖空生成试题 -->
+                <button id="btnClozeTest" class="toolbar-btn bg-emerald-100 text-emerald-700 border-emerald-300 font-bold">✂️ 挖空生成试题</button>
                 
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
@@ -410,9 +412,7 @@
                 <div class="flex items-center justify-between">
                     <label class="block text-[10px] text-indigo-600 font-bold">📥 导入知识库</label>
                     <div class="flex gap-1">
-                        <!-- 新增：云端加载按钮 -->
                         <button id="btnLoadCloudKb" class="cursor-pointer bg-indigo-600 text-white px-2 py-1 rounded text-[10px] hover:bg-indigo-700 transition">☁️ 加载云端库</button>
-                        <!-- 原有：本地文件选择 -->
                         <label class="cursor-pointer bg-white border border-indigo-300 text-indigo-700 px-2 py-1 rounded text-[10px] hover:bg-indigo-50 transition">
                             本地上传
                             <input type="file" id="kbFileUpload" accept=".json" class="hidden">
@@ -426,7 +426,6 @@
         <div class="bg-teal-50 p-3 rounded-lg border border-teal-200 space-y-2">
             <label class="block text-xs font-bold text-teal-800 mb-1">📂 上传上课文件 (PDF/Word/PPT/TXT)</label>
             <div class="flex items-center justify-between gap-2">
-                <!-- 彻底修复：使用 label 触发隐藏的 input，并绝对保证不冲突 -->
                 <label class="cursor-pointer bg-white border border-teal-300 text-teal-700 px-3 py-1 rounded text-xs hover:bg-teal-50 transition font-medium shadow-sm">
                     选择文件
                     <input type="file" id="docFileUpload" accept=".pdf,.docx,.txt,.pptx" class="hidden">
@@ -452,7 +451,6 @@
         </div>
 
         <div class="flex flex-col gap-2.5 mt-auto pt-2">
-            <!-- 课堂测验按钮，位置醒目 -->
             <button id="btnQuiz" class="w-full bg-amber-500 text-white py-2.5 rounded-lg font-bold hover:bg-amber-600 transition text-sm cursor-pointer flex justify-center items-center shadow-sm border border-amber-600">🎯 生成课堂测验 (展示在白板)</button>
             
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">📚 一键整理白板笔记</button>
@@ -481,7 +479,7 @@
     </div>
 </div>
 
-<!-- 字帖 Modal (尺寸撑满全屏，默认隐藏) -->
+<!-- 字帖 Modal (尺寸全屏撑开，默认隐藏，点击才出现) -->
 <div id="worksheetModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 justify-center items-center">
     <!-- 强制宽高为 95vw 和 95vh -->
     <div class="bg-white shadow-2xl flex flex-col overflow-hidden" style="width: 95vw !important; height: 95vh !important; border-radius: 12px;">
@@ -492,6 +490,7 @@
         <iframe src="https://chaulede.github.io/ZT/" style="width: 100% !important; height: 100% !important; border: none; display: block;" allow="fullscreen"></iframe>
     </div>
 </div>
+
 <script>
     window.addEventListener('DOMContentLoaded', () => {
         if (typeof JSZip === 'undefined') {
@@ -1542,7 +1541,7 @@
             setTimeout(saveHistoryImmediate, 50);
         });
 
-        // ======== 课堂测验 (全覆盖出题 + 题型双语注释) ========
+        // ======== 课堂测验 (全覆盖出题 + 题型双语注释 + 短文填空) ========
         document.getElementById('btnQuiz').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
@@ -1565,7 +1564,7 @@
 ${vocabPrompt}
 
 【极重要要求：全覆盖出题】
-如果上文有【本课核心词汇】列表，你必须在下面的 **每一种题型** 中，把列表里的 **每一个词汇** 都练习到！绝不能遗漏！
+如果上文有【本课核心词汇】列表，你必须在下面的 **各种题型** 中，把列表里的 **每一个词汇** 都练习到！绝不能遗漏！
 
 【极重要要求：题型双语注释】
 请在题目中按以下格式标注题型标题，必须包含英文翻译，让学生明白：
@@ -1574,12 +1573,17 @@ ${vocabPrompt}
 【题型三：连词成句 (Make sentences)】
 【题型四：词汇汉译英 (Vocabulary: Chinese to English)】
 【题型五：词汇英译汉 (Vocabulary: English to Chinese)】
+【题型六：选词填空（短文/对话）(Cloze Test with Word Bank)】
 
 【排版要求】
 1. 严格按照 Markdown 列表格式输出，带有序号。
 2. 绝对不要在题目中直接给出答案，必须留出作答空间！
 3. 填空题用“______”表示；组词题用“字 → ______”；连词成句用“词A / 词B / 词C → _________________”；词汇汉译英和英译汉题型，只出词汇不出句子，格式为：“汉译英：中文 ______” 和 “英译汉：English ______”。
-4. 不要输出多余的寒暄和讲解，直接输出题目。
+4. **【题型六：选词填空（短文/对话）】的专属排版要求**：
+   - 必须在最上方提供一个**【备选词库】**（例如：A. 除了 B. 以外 C. 因为 D. 再说），备选词必须是从本课核心词汇中提取的。
+   - 下方提供一段连贯的短文或对话，将备选词挖空（用 ______ 表示，且标记序号如 (1)______ ）。
+   - 此题型主要用来检测学生综合运用词汇的能力。
+5. 不要输出多余的寒暄和讲解，直接输出题目。
 
 【白板语料】
 ${sourceText}`;
@@ -1954,6 +1958,56 @@ ${sourceText}`;
             document.getElementById('worksheetModal').classList.add('hidden');
             document.getElementById('worksheetModal').classList.remove('flex');
         };
+
+        // ====== 新增：一键挖空生成试题 ======
+        document.getElementById('btnClozeTest').addEventListener('click', function() {
+            const originalNodes = whiteboard.querySelectorAll('.core-vocab');
+            if (originalNodes.length === 0) {
+                alert('请先用鼠标选中文章中的字词，点击“U 标注核心词汇”，然后再来生成挖空试题！');
+                return;
+            }
+
+            // 克隆当前的完整 HTML 以避免破坏原文章
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = whiteboard.innerHTML;
+            
+            // 提取克隆后的标记词汇
+            const clonedVocabs = tempDiv.querySelectorAll('.core-vocab');
+            const wordBank = new Set();
+            let blankIndex = 1;
+
+            // 将标记词替换为带有题号的下划线
+            clonedVocabs.forEach(node => {
+                const text = node.textContent.trim();
+                if (text) {
+                    wordBank.add(text);
+                    const blankSpan = document.createElement('span');
+                    blankSpan.style.cssText = 'display:inline-block; min-width:60px; border-bottom:2px solid #1e293b; text-align:center; font-weight:bold; color:#3b82f6;';
+                    blankSpan.textContent = `(${blankIndex})`;
+                    node.replaceWith(blankSpan);
+                    blankIndex++;
+                }
+            });
+
+            // 打乱词库
+            const wordBankArray = Array.from(wordBank).sort(() => Math.random() - 0.5);
+            const wordBankHtml = wordBankArray.map((w, i) => `${String.fromCharCode(65 + i)}. ${w}`).join(' &nbsp;&nbsp;&nbsp; ');
+
+            // 构建生成的内容
+            let finalHtml = `<hr style="border: 1px dashed #cbd5e1; margin: 40px 0;"><br>`;
+            finalHtml += `<div class="quiz-board">`;
+            finalHtml += `<h2>✂️ 短文挖空练习 (Cloze Test)</h2>`;
+            finalHtml += `<div style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-family:'Arial', sans-serif; font-size:1.1em; color:#1e293b; font-weight:bold;">`;
+            finalHtml += `<span style="color:#1d4ed8; margin-right:10px;">【备选词库】</span> ${wordBankHtml}`;
+            finalHtml += `</div>`;
+            finalHtml += `<div style="line-height: 2.8; padding: 10px; font-size: 1.1em;">${tempDiv.innerHTML}</div>`;
+            finalHtml += `</div>`;
+
+            // 追加到白板底部
+            whiteboard.innerHTML += finalHtml;
+            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+            setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
+        });
     }
 
     window.clearPptFromBoard = function() {

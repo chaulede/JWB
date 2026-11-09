@@ -397,8 +397,8 @@
                         <option value="Russian">俄语 (Русский)</option>
                         <option value="Thai">泰语 (ภาษาไทย)</option>
                         <option value="Vietnamese">越南语 (Tiếng Việt)</option>
-                        <!-- 新增：波兰语 -->
                         <option value="Polish">波兰语 (Polski)</option>
+                        <option value="Kazakh">哈萨克语 (Қазақ тілі)</option>
                     </select>
                     <button id="btnTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer">🌐 划选翻译</button>
                 </div>
@@ -480,8 +480,9 @@
                 <label class="block text-xs font-medium text-slate-700 mb-1">🤖 AI 模型</label>
                 <select id="modelProvider" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white">
                     <option value="deepseek" selected>DeepSeek (deepseek-chat)</option>
+                    <option value="openai">OpenAI (gpt-4o-mini)</option>
                     <option value="claude">Claude (claude-3-5-haiku)</option>
-                    <option value="zhipu">智谱 GLM (glm-4.7-flash) 免费</option>
+                    <option value="zhipu">智谱 GLM (glm-4.7-flash)</option>
                 </select>
             </div>
             <div>
@@ -496,7 +497,9 @@
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">📚 一键整理白板笔记</button>
             <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1.5 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载复习笔记 (Word)</button>
             <button id="btnGenEx" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">✍️ 生成全套测试题</button>
-            <button id="btnDownloadEx" class="hidden w-full bg-indigo-700 text-white py-1.5 rounded-lg text-xs hover:bg-indigo-800 transition cursor-pointer">📥 下载测试题 (Word)</button>
+            <!-- 这两个按钮的显示由新的弹窗逻辑控制，保留以兼容其他可能触发 -->
+            <button id="btnDownloadExStudent" class="hidden w-full bg-blue-600 text-white py-1.5 rounded-lg text-xs hover:bg-blue-700 transition cursor-pointer">📥 下载学生版测试题 (无答案)</button>
+            <button id="btnDownloadExTeacher" class="hidden w-full bg-indigo-700 text-white py-1.5 rounded-lg text-xs hover:bg-indigo-800 transition cursor-pointer">📥 下载教师版测试题 (含答案)</button>
         </div>
     </div>
 </div>
@@ -570,6 +573,7 @@
         { account: "aurora", password: "123456" },
         { account: "sheng", password: "123456" },
         { account: "lynn", password: "123456" },
+        { account: "小K", password: "123456" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 
@@ -626,7 +630,7 @@
             sourceText = sourceText ? sourceText[1] : prompt;
             
             // 使用无需 Key 的 MyMemory 免费翻译 API (每天 5000 字符)
-            const langMap = { 'English': 'en', 'French': 'fr', 'Japanese': 'ja', 'Korean': 'ko', 'German': 'de', 'Italian': 'it', 'Spanish': 'es', 'Russian': 'ru', 'Thai': 'th', 'Vietnamese': 'vi', 'Indonesian': 'id', 'Polish': 'pl' };
+            const langMap = { 'English': 'en', 'French': 'fr', 'Japanese': 'ja', 'Korean': 'ko', 'German': 'de', 'Italian': 'it', 'Spanish': 'es', 'Russian': 'ru', 'Thai': 'th', 'Vietnamese': 'vi', 'Indonesian': 'id', 'Polish': 'pl', 'Kazakh': 'kk' };
             const targetCode = langMap[targetLang] || 'en';
             const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(sourceText)}&langpair=zh-CN|${targetCode}`;
             
@@ -670,6 +674,22 @@
         if (imageBase64) {
             alert("当前选择的 AI 模型不支持图片解析，请使用文字输入。");
             throw new Error('模型不支持识图');
+        }
+
+        if (provider === 'openai') {
+            const url = "https://api.openai.com/v1/chat/completions";
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini", 
+                    messages: [{ role: "system", content: systemInstruction }, { role: "user", content: prompt }], 
+                    temperature: 0.3
+                })
+            });
+            if (!res.ok) throw new Error(`OpenAI 请求失败 (${res.status})`);
+            const data = await res.json();
+            return data.choices[0].message.content.trim();
         }
 
         if (provider === 'claude') {
@@ -2024,7 +2044,8 @@ ${sourceText}`;
                 document.getElementById('examContent').innerHTML = finalHtml;
                 document.getElementById('examModal').classList.remove('hidden');
                 document.getElementById('btnDownloadNotes').classList.remove('hidden');
-                document.getElementById('btnDownloadEx').classList.add('hidden');
+                document.getElementById('btnDownloadExStudent').classList.add('hidden');
+                document.getElementById('btnDownloadExTeacher').classList.add('hidden');
             } catch (e) { alert("整理失败：" + e.message); } 
             finally { 
                 btn.innerHTML = originalText; 
@@ -2046,7 +2067,18 @@ ${sourceText}`;
             return `<div class="triple-line"><div class="head-zh">${headZh}</div><div class="py">${py}</div><div class="en">${en}</div></div>\n`;
         }
 
-        document.getElementById('btnGenEx').addEventListener('click', async function() {
+        // 修改：点击生成全套试题时，弹出选择框
+        document.getElementById('btnGenEx').addEventListener('click', function() {
+            const isTeacher = confirm("请选择要生成的版本：\n\n点击【确定】生成 教师版 (含答案解析)\n点击【取消】生成 学生版 (无答案)");
+            
+            // 使用 setTimeout 避免阻塞 UI 线程，同时触发真实的生成函数
+            setTimeout(() => {
+                generateExamPaper(isTeacher);
+            }, 100);
+        });
+
+        // 独立的试卷生成函数，接收是否为教师版的参数
+        async function generateExamPaper(isTeacher) {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
             const imageBase64 = getImageFromBoard();
@@ -2063,40 +2095,61 @@ ${sourceText}`;
                 if (match && match[1]) detectedLang = match[1];
             }
 
-            const btn = this; const originalText = btn.innerHTML;
+            const btn = document.getElementById('btnGenEx'); 
+            const originalText = btn.innerHTML;
             btn.innerHTML = `<span class="loader"></span> AI 正在出题...`; 
             if (imageBase64) loadingText.innerText = "AI 正在读取图片文字并出题...";
             btn.disabled = true;
             loadingOverlay.classList.remove('hidden');
 
-            const prompt = `你是一个极度严格的 HSK命题专家。请根据提供的语料（或图片内容）生成一套测试题。
+            const prompt = `你是一个极度严格的 HSK3 命题专家。请根据提供的语料（或图片内容）生成一套测试题。
 ${vocabPrompt}
 【语言要求】所有题目、选项和答案解析，都必须采用【中文】和【${detectedLang}】双语对照输出。
-【排版要求】请使用 Markdown 格式排版。每道题目、每个选项必须独立成段，段落间必须有空行！包含听力、阅读、书写三大板块。选择题请用列表形式。
+【排版要求】
+1. 请使用 Markdown 格式排版，每道题目、每个选项必须独立成段，段落间必须有空行。
+2. **绝不能把答案写在题目中**，题目中只能留出作答空间。
+3. 包含听力、阅读、书写三大板块。
+4. **在试卷的最末尾**，必须增加一个名为“## 参考答案 (Answer Key)”的独立区块，在这里按题号统一给出所有题目的正确答案和解析。
 【语料】
 ${sourceText}`;
 
             try {
                 const exerciseMarkdown = await callAI(prompt, "你是一个专业的国际中文命题专家。", imageBase64);
                 currentMode = 'exam';
-                document.getElementById('modalTitle').innerText = "📄 AI 生成的测试题";
-                document.getElementById('examContent').innerHTML = (typeof marked !== 'undefined') ? marked.parse(exerciseMarkdown) : exerciseMarkdown;
+                document.getElementById('modalTitle').innerText = isTeacher ? "📄 教师版测试题 (已准备)" : "📄 学生版测试题 (已准备)";
+                
+                // 分离试卷和答案
+                const answerSplitRegex = /##\s*参考答案.*/i;
+                const parts = exerciseMarkdown.split(answerSplitRegex);
+                
+                const studentPart = parts[0] || exerciseMarkdown;
+                const answerPart = parts.length > 1 ? `## 参考答案\n${parts[1]}` : '';
+
+                // 存储到全局供下载
+                window.__studentExMarkdown = studentPart;
+                window.__teacherExMarkdown = studentPart + '\n\n' + answerPart;
+
+                // 界面上展示根据用户选择决定的内容
+                const contentToShow = isTeacher ? window.__teacherExMarkdown : window.__studentExMarkdown;
+                document.getElementById('examContent').innerHTML = (typeof marked !== 'undefined') ? marked.parse(contentToShow) : contentToShow;
+                
                 document.getElementById('examModal').classList.remove('hidden');
-                document.getElementById('btnDownloadEx').classList.remove('hidden');
                 document.getElementById('btnDownloadNotes').classList.add('hidden');
+                document.getElementById('btnDownloadExStudent').classList.remove('hidden');
+                document.getElementById('btnDownloadExTeacher').classList.remove('hidden');
             } catch (e) { alert("出题失败：" + e.message); } 
             finally { 
                 btn.innerHTML = originalText; 
                 btn.disabled = false; 
                 loadingOverlay.classList.add('hidden');
             }
-        });
+        }
 
-        document.getElementById('modalDownloadBtn').addEventListener('click', function() {
-            const isNote = currentMode === 'note';
-            const contentHtml = document.getElementById('examContent').innerHTML;
-            if (!contentHtml) { alert('没有可下载的内容'); return; }
-            const fileName = isNote ? '复习笔记' : '测试题';
+        // 统一导出 Word 逻辑
+        function downloadWord(contentMarkdown, fileName) {
+            if (!contentMarkdown) { alert('没有可下载的内容'); return; }
+            
+            const contentHtml = (typeof marked !== 'undefined') ? marked.parse(contentMarkdown) : contentMarkdown;
 
             const styleForWord = `
                 <style>
@@ -2128,9 +2181,34 @@ ${sourceText}`;
             a.download = `${fileName}.doc`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+
+        // 下载笔记 (当前内容)
+        document.getElementById('modalDownloadBtn').addEventListener('click', function() {
+            if (currentMode === 'note') {
+                downloadWord(document.getElementById('examContent').innerHTML, '复习笔记');
+            } else {
+                // 如果当前在试卷界面，默认下载当前预览的版本
+                const title = document.getElementById('modalTitle').innerText;
+                if (title.includes('教师版')) {
+                    downloadWord(window.__teacherExMarkdown, '测试题_教师版');
+                } else {
+                    downloadWord(window.__studentExMarkdown, '测试题_学生版');
+                }
+            }
         });
 
-        window.closeModal = function() { document.getElementById('examModal').classList.add('hidden'); currentMode = ""; document.getElementById('examContent').innerHTML = ""; document.getElementById('btnDownloadNotes').classList.add('hidden'); document.getElementById('btnDownloadEx').classList.add('hidden'); }
+        // 下载学生版试卷
+        document.getElementById('btnDownloadExStudent').addEventListener('click', function() {
+            downloadWord(window.__studentExMarkdown, '测试题_学生版');
+        });
+
+        // 下载教师版试卷
+        document.getElementById('btnDownloadExTeacher').addEventListener('click', function() {
+            downloadWord(window.__teacherExMarkdown, '测试题_教师版');
+        });
+
+        window.closeModal = function() { document.getElementById('examModal').classList.add('hidden'); currentMode = ""; document.getElementById('examContent').innerHTML = ""; document.getElementById('btnDownloadNotes').classList.add('hidden'); document.getElementById('btnDownloadExStudent').classList.add('hidden'); document.getElementById('btnDownloadExTeacher').classList.add('hidden'); }
         
         window.copyExam = function() { 
             const text = document.getElementById('examContent').innerText; if (!text) return; 
@@ -2278,7 +2356,7 @@ ${sourceText}`;
             // 追加到白板底部
             whiteboard.innerHTML += finalHtml;
             scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-            setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
+            setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 250); // 稍微加大延迟，确保 DOM 渲染完毕
         });
     }
 

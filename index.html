@@ -200,7 +200,7 @@
     .auth-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 90%; }
     #whiteboardScrollContainer { position: absolute; inset: 0; overflow: auto; z-index: 10; }
     #whiteboardInnerWrapper { position: relative; min-height: 100%; width: 100%; }
-    #whiteboardContent { font-family: 'KaiTi', '楷体', 'STKaiti', 'Kaiti SC', 'Songti SC', 'PingFang SC', 'Microsoft YaHei', serif; line-height: 2.8; outline: none; word-break: break-word; padding: 20px; position: relative; z-index: 2; }
+    #whiteboardContent { font-family: 'KaiTi', '楷体', 'STKaiti', 'Kaiti SC', 'Songti SC', 'PingFang SC', 'Microsoft YaHei', serif; line-height: 2; outline: none; word-break: break-word; padding: 20px; position: relative; z-index: 2; }
     #drawCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; touch-action: none; }
     #drawCanvas.active { pointer-events: auto; cursor: crosshair; }
     
@@ -269,8 +269,8 @@
         display: block;
     }
     
-    ruby { ruby-align: center; margin: 0 4px; font-size: 1em; white-space: nowrap; }
-    rt { font-size: 0.8em !important; color: #1d4ed8 !important; font-family: 'Arial', sans-serif !important; font-weight: bold !important; margin-bottom: 2px; line-height: 1.1; }
+    ruby { ruby-align: center; ruby-position: over; margin: 0 1px; white-space: nowrap; }
+    rt { font-size: 0.5em !important; color: #1d4ed8 !important; font-family: 'Arial', sans-serif !important; font-weight: bold !important; line-height: 1.2; }
     
     .english-line { display: block !important; font-size: 0.85em !important; color: #64748b; font-family: 'Arial', sans-serif; font-style: italic; border-left: 3px solid #cbd5e1; padding-left: 8px; margin: 8px 0 20px 0 !important; line-height: 1.4 !important; width: 100%; }
     .toolbar-btn { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 6px 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; cursor: pointer; font-weight: 500; transition: all 0.2s; }
@@ -316,7 +316,7 @@
     .quiz-board { margin-top: 10px; }
     .quiz-board h2 { font-size: 1.3em; font-weight: bold; color: #1e3a8a; border-bottom: 2px dashed #93c5fd; padding-bottom: 10px; margin-bottom: 20px; }
     .quiz-board h3 { font-size: 1.1em; font-weight: bold; color: #b45309; margin-top: 20px; margin-bottom: 10px; }
-    .quiz-board p { margin-bottom: 15px; line-height: 2.2; }
+    .quiz-board p { margin-bottom: 12px; line-height: 1.8; }
     
     /* 字帖 iframe 弹窗专用样式 */
     #worksheetModal iframe {
@@ -377,8 +377,8 @@
                 <button id="btnRed" class="toolbar-btn text-red-500 font-bold">A</button>
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
-                <button id="btnMarkVocab" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold"><u>U</u> 标注核心词汇</button>
-                <button id="btnAddPinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold">✨ 划选加拼音</button>
+                <button id="btnTogglePinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold" title="选中文字：无拼音则添加，有拼音则去除">✨ 拼音</button>
+                <button id="btnToggleUnderline" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold" title="选中文字：无下划线则标注，有下划线则去除"><u>U</u> 核心词汇</button>
                 <!-- 打开字帖生成器按钮 -->
                 <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
                 <!-- 新增：根据标记直接挖空生成试题 -->
@@ -400,7 +400,7 @@
                         <option value="Polish">波兰语 (Polski)</option>
                         <option value="Kazakh">哈萨克语 (Қазақ тілі)</option>
                     </select>
-                    <button id="btnTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer">🌐 划选翻译</button>
+                    <button id="btnToggleTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer" title="选中文字：无翻译则添加，有翻译则去除">🌐 翻译</button>
                 </div>
                 <button id="btnUndo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↩️ 撤销</button>
                 <button id="btnRedo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↪️ 还原</button>
@@ -833,36 +833,36 @@
                 }, 10);
             }
 
-            // 选中文字后的回车操作
+            // 回车：选中文字 → 加拼音 / 翻译；没选中 → 对当前这一行文字自动加拼音 + 翻译
             if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.isComposing || e.keyCode === 229) return; // 输入法正在选词时的回车，不处理
                 const selection = window.getSelection();
-                if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-                    const range = selection.getRangeAt(0);
-                    const selectedText = selection.toString().trim();
-                    
+                if (!selection || selection.rangeCount === 0) return;
+                const range = selection.getRangeAt(0);
+
+                if (!selection.isCollapsed) {
+                    const selectedText = getSelectionPlainText(range) || selection.toString().trim();
                     if (!selectedText) return;
 
-                    // 判断是否是 Ctrl + Enter (或 Mac 的 Cmd + Enter)
                     if (e.ctrlKey || e.metaKey) {
+                        // Ctrl + Enter：一键同时加拼音和翻译
                         e.preventDefault();
-                        // 一键同时加拼音和翻译
                         combinePinyinAndTranslate(range, selectedText);
                     } else {
                         // 普通回车：第一次加拼音，第二次加翻译
                         const frag = range.cloneContents();
                         const hasPinyin = frag.querySelector('table') !== null || frag.querySelector('.py-top') !== null || frag.querySelector('ruby') !== null;
                         const hasTranslation = frag.querySelector('.english-line') !== null;
-
+                        e.preventDefault();
                         if (hasPinyin || hasTranslation) {
-                            e.preventDefault(); 
-                            if (!hasTranslation) {
-                                translateSelection(range, selectedText);
-                            }
+                            if (!hasTranslation) translateSelection(range, selectedText);
                         } else {
-                            e.preventDefault();
                             addPinyinToSelection(range, selectedText);
                         }
                     }
+                } else {
+                    // 没有选中文字：处理光标所在的这一行（Shift + Enter 可正常换行，不触发）
+                    if (handleEnterOnLine(range)) e.preventDefault();
                 }
             }
         });
@@ -1470,81 +1470,83 @@
             setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
         }
 
-        // ================= 重构：纯粹的撤销与重做逻辑（快照模式） =================
-        let undoStack = [], redoStack = [], isUndoRedoing = false, historyTimer = null;
-        
-        // 强制立即保存快照
+        // ================= 撤销与还原（历史栈 + 指针模式） =================
+        let historyStack = [];        // 所有快照
+        let historyIndex = -1;        // 当前所处位置
+        let isUndoRedoing = false;
+        let historyTimer = null;
+        const MAX_HISTORY = 100;
+
+        // 立即保存快照
         function saveHistoryImmediate() {
             if (isUndoRedoing) return;
+            clearTimeout(historyTimer);
             const html = whiteboard.innerHTML;
-            
-            // 如果当前内容和栈顶完全一样（无修改），或者栈顶为空，则不存
-            if (undoStack.length > 0 && undoStack[undoStack.length - 1] === html) return;
-            
-            // 限制栈深度为 100 步
-            if (undoStack.length > 100) undoStack.shift(); 
-            undoStack.push(html); 
-            redoStack = []; // 产生新操作时，清空重做栈
+
+            // 内容与当前位置的快照相同，则不重复保存
+            if (historyIndex >= 0 && historyStack[historyIndex] === html) return;
+
+            // 如果当前不在栈顶（撤销过），产生新操作时丢弃"未来"的记录
+            historyStack = historyStack.slice(0, historyIndex + 1);
+            historyStack.push(html);
+
+            if (historyStack.length > MAX_HISTORY) historyStack.shift();
+            historyIndex = historyStack.length - 1;
         }
-        
-        // 输入文字时的防抖保存（避免打字太快，或者拼音输入法每次按键都记一步）
+
+        // 输入文字时的防抖保存
         function saveHistoryDebounced() {
-            if (isUndoRedoing) return; 
-            clearTimeout(historyTimer); 
+            if (isUndoRedoing) return;
+            clearTimeout(historyTimer);
             historyTimer = setTimeout(saveHistoryImmediate, 500);
         }
-        
+
+        // 恢复到指定位置的快照
+        function restoreHistory(index) {
+            isUndoRedoing = true;
+            whiteboard.innerHTML = historyStack[index];
+            // 关键：用浏览器"标准化"后的 HTML 回写快照，保证之后的对比一致
+            historyStack[index] = whiteboard.innerHTML;
+            historyIndex = index;
+            isUndoRedoing = false;
+            setTimeout(resizeCanvas, 100);
+        }
+
+        function doUndo() {
+            saveHistoryImmediate(); // 先把还没来得及保存的最新修改存下来
+            if (historyIndex > 0) {
+                restoreHistory(historyIndex - 1);
+            } else {
+                alert('已经是最初的状态了！');
+            }
+        }
+
+        function doRedo() {
+            saveHistoryImmediate();
+            if (historyIndex < historyStack.length - 1) {
+                restoreHistory(historyIndex + 1);
+            } else {
+                alert('已经是最新的状态了，无法继续还原！');
+            }
+        }
+
         // 初始化保存一次初始状态
         saveHistoryImmediate();
         whiteboard.addEventListener('input', saveHistoryDebounced);
 
-        // 点一次撤销回退一步
-        document.getElementById('btnUndo').addEventListener('click', function() {
-            clearTimeout(historyTimer);
-            
-            // 如果当前状态未入栈，先推入栈，防止丢状态
-            if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== whiteboard.innerHTML) {
-                undoStack.push(whiteboard.innerHTML);
-            }
+        document.getElementById('btnUndo').addEventListener('click', doUndo);
+        document.getElementById('btnRedo').addEventListener('click', doRedo);
 
-            // 当栈里有多于一个状态时，才能撤销（留一个最初始的状态打底）
-            if (undoStack.length > 1) {
-                isUndoRedoing = true;
-                
-                // 将当前状态推入重做栈
-                const currentState = undoStack.pop(); 
-                redoStack.push(currentState);
-                
-                // 恢复上一个状态
-                whiteboard.innerHTML = undoStack[undoStack.length - 1];
-                
-                isUndoRedoing = false;
-                setTimeout(resizeCanvas, 100);
-            } else {
-                alert('已经是最初的状态了！');
-            }
-        });
-
-        // 点一次还原前进一步
-        document.getElementById('btnRedo').addEventListener('click', function() {
-            clearTimeout(historyTimer);
-            
-            if (redoStack.length > 0) {
-                isUndoRedoing = true;
-                
-                // 从重做栈取出状态
-                const nextState = redoStack.pop();
-                
-                // 推入撤销栈
-                undoStack.push(nextState);
-                
-                // 更新白板
-                whiteboard.innerHTML = nextState;
-                
-                isUndoRedoing = false;
-                setTimeout(resizeCanvas, 100);
-            } else {
-                alert('已经是最新的状态了，无法继续还原！');
+        // 键盘快捷键：Ctrl/Cmd+Z 撤销，Ctrl+Y 或 Ctrl/Cmd+Shift+Z 还原
+        whiteboard.addEventListener('keydown', function(e) {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            const k = e.key.toLowerCase();
+            if (k === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                doUndo();
+            } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+                e.preventDefault();
+                doRedo();
             }
         });
         // =========================================================================
@@ -1563,43 +1565,13 @@
         }
 
         document.getElementById('btnAPlus').addEventListener('click', () => {
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-                // 只调整选中文字大小
-                const range = selection.getRangeAt(0);
-                const span = document.createElement('span');
-                span.style.fontSize = 'larger'; 
-                try {
-                    range.surroundContents(span);
-                } catch (e) {
-                    // 跨节点时的容错处理
-                    document.execCommand('fontSize', false, '5'); 
-                }
-                saveHistoryImmediate();
-                return;
-            }
-
-            // 未选中文字则调整全局字号
+            // 有选中文字：只放大选中的部分；没有选中：调整全局字号
+            if (resizeSelectedText(4)) return;
             currentFontSize = Math.min(80, currentFontSize + 2);
             applyFontSize();
         });
         document.getElementById('btnAMinus').addEventListener('click', () => {
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-                // 只调整选中文字大小
-                const range = selection.getRangeAt(0);
-                const span = document.createElement('span');
-                span.style.fontSize = 'smaller'; 
-                try {
-                    range.surroundContents(span);
-                } catch (e) {
-                    document.execCommand('fontSize', false, '2'); 
-                }
-                saveHistoryImmediate();
-                return;
-            }
-
-            // 未选中文字则调整全局字号
+            if (resizeSelectedText(-4)) return;
             currentFontSize = Math.max(14, currentFontSize - 2);
             applyFontSize();
         });
@@ -1612,227 +1584,488 @@
             saveHistoryImmediate();
         });
 
-        document.getElementById('btnMarkVocab').addEventListener('click', function() {
-            const selection = window.getSelection(); 
-            if (!selection.rangeCount) return;
-            const range = selection.getRangeAt(0); 
-            const selectedText = selection.toString().trim();
-            if (!selectedText) { alert('请先用鼠标选中需要标注的词汇！'); return; }
-            
-            const wrapper = document.createElement('span');
-            wrapper.className = 'core-vocab';
-            wrapper.textContent = selectedText;
-            
-            range.deleteContents(); 
-            range.insertNode(wrapper); 
-            
-            const newRange = document.createRange(); 
-            newRange.setStartAfter(wrapper); 
-            newRange.collapse(true);
-            selection.removeAllRanges(); 
-            selection.addRange(newRange); 
-            
-            setTimeout(saveHistoryImmediate, 50);
-        });
-
-        // 抽出的拼音和翻译函数供回车和按钮调用
-        function addPinyinToSelection(range, selectedText) {
-            // 使用 table 布局完美解决错位问题
-            const tbl = document.createElement('table');
-            tbl.className = 'pinyin-inline-table';
-            
-            // 创建包含拼音(行1)和汉字(行2)的两行结构
-            const trPy = document.createElement('tr');
-            const trZh = document.createElement('tr');
-
-            for (let char of selectedText) {
-                const tdPy = document.createElement('td');
-                const tdZh = document.createElement('td');
-
-                if (/[\u4e00-\u9fa5]/.test(char)) {
-                    const py = (typeof window.pinyinPro !== 'undefined') ? window.pinyinPro.pinyin(char, { toneType: 'symbol' }) : '';
-                    
-                    const topPy = document.createElement('span');
-                    topPy.className = 'py-top';
-                    topPy.textContent = py;
-                    
-                    const bottomZh = document.createElement('span');
-                    bottomZh.className = 'py-bottom';
-                    bottomZh.textContent = char;
-                    
-                    tdPy.appendChild(topPy);
-                    tdZh.appendChild(bottomZh);
-                    tdPy.style.verticalAlign = 'bottom';
-                    tdZh.style.verticalAlign = 'top';
-                } else { 
-                    // 非汉字，将两行内容合并为单单元格
-                    const tdSpan = document.createElement('td');
-                    tdSpan.textContent = char;
-                    tdSpan.rowSpan = 2;
-                    tdSpan.style.verticalAlign = 'bottom';
-                    
-                    trPy.appendChild(tdSpan);
-                    // trZh 不增加单元格
-                    continue;
-                }
-                trPy.appendChild(tdPy);
-                trZh.appendChild(tdZh);
-            }
-            
-            tbl.appendChild(trPy);
-            if (trZh.hasChildNodes()) tbl.appendChild(trZh);
-
-            range.deleteContents(); 
-            range.insertNode(tbl); 
-            
-            const newRange = document.createRange(); 
-            newRange.setStartAfter(tbl); 
-            newRange.collapse(true);
+        // ===== 去除选中部分的拼音 / 翻译 / 下划线（辅助函数，供切换按钮调用） =====
+        function removeSelectedElements(selector, restoreFn, emptyTip) {
             const selection = window.getSelection();
-            selection.removeAllRanges(); 
-            selection.addRange(newRange); 
-            
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                alert('请先用鼠标选中需要去除的范围！');
+                return;
+            }
+            const range = selection.getRangeAt(0);
+            const targets = [];
+            whiteboard.querySelectorAll(selector).forEach(node => {
+                let hit = false;
+                try { hit = range.intersectsNode(node); } catch (e) { hit = false; }
+                if (hit) targets.push({ node, replacement: restoreFn(node) });
+            });
+
+            if (targets.length === 0) { alert(emptyTip); return; }
+
+            targets.forEach(({ node, replacement }) => {
+                if (!node.parentNode) return;
+                if (replacement === null) {
+                    node.remove();
+                } else if (typeof replacement === 'string') {
+                    node.replaceWith(document.createTextNode(replacement));
+                } else {
+                    node.replaceWith(replacement);
+                }
+            });
+
+            saveHistoryImmediate();
+            setTimeout(resizeCanvas, 100);
+        }
+
+        function restorePinyinText(node) {
+            if (node.tagName && node.tagName.toLowerCase() === 'ruby') {
+                let txt = '';
+                node.childNodes.forEach(c => {
+                    if (c.nodeType === Node.TEXT_NODE) txt += c.textContent;
+                    else if (c.tagName && c.tagName.toLowerCase() !== 'rt') txt += c.textContent;
+                });
+                return txt;
+            }
+            const firstRow = node.querySelector('tr');
+            if (firstRow) {
+                let txt = '';
+                firstRow.querySelectorAll('td').forEach(td => {
+                    const bottom = td.querySelector('.py-bottom');
+                    txt += bottom ? bottom.textContent : td.textContent;
+                });
+                return txt;
+            }
+            const clone = node.cloneNode(true);
+            clone.querySelectorAll('.py-top').forEach(e => e.remove());
+            return clone.textContent;
+        }
+        // ===== 去除功能辅助函数结束 =====
+
+        // ================= 拼音：使用标准 <ruby> 标签，拼音显示在汉字正上方 =================
+        // 把一段文字变成 DocumentFragment：汉字 → <ruby>字<rt>拼音</rt></ruby>，其他字符保持原样
+        function buildPinyinFragment(text) {
+            const frag = document.createDocumentFragment();
+            const chars = Array.from(text);
+            let pys = null;
+            try {
+                if (typeof window.pinyinPro !== 'undefined') {
+                    // 整句取拼音，多音字更准确
+                    const arr = window.pinyinPro.pinyin(text, { toneType: 'symbol', type: 'array' });
+                    if (Array.isArray(arr) && arr.length === chars.length) pys = arr;
+                }
+            } catch (err) { pys = null; }
+
+            let buf = '';
+            const flush = () => { if (buf) { frag.appendChild(document.createTextNode(buf)); buf = ''; } };
+            chars.forEach((ch, i) => {
+                if (/[\u4e00-\u9fa5]/.test(ch)) {
+                    flush();
+                    let py = '';
+                    if (pys) py = pys[i];
+                    else if (typeof window.pinyinPro !== 'undefined') py = window.pinyinPro.pinyin(ch, { toneType: 'symbol' });
+                    const ruby = document.createElement('ruby');
+                    ruby.appendChild(document.createTextNode(ch));
+                    const rt = document.createElement('rt');
+                    rt.textContent = py;
+                    ruby.appendChild(rt);
+                    frag.appendChild(ruby);
+                } else {
+                    buf += ch;
+                }
+            });
+            flush();
+            return frag;
+        }
+
+        // 取出选区（或一行）里涉及到的文本节点，以及每个节点被选中的起止位置
+        function getRangeTextParts(range) {
+            const root = range.commonAncestorContainer.nodeType === 3 ? range.commonAncestorContainer.parentNode : range.commonAncestorContainer;
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            const parts = [];
+            let n;
+            while ((n = walker.nextNode())) {
+                if (!range.intersectsNode(n)) continue;
+                const s = (n === range.startContainer) ? range.startOffset : 0;
+                const e = (n === range.endContainer) ? range.endOffset : n.nodeValue.length;
+                if (e > s) parts.push({ node: n, s, e });
+            }
+            return parts;
+        }
+
+        // 把文本节点按 [s, e) 切开，返回被选中的那一段
+        function splitTextPart(p) {
+            let t = p.node;
+            if (p.e < t.nodeValue.length) t.splitText(p.e);
+            if (p.s > 0) t = t.splitText(p.s);
+            return t;
+        }
+
+        // 原地给范围内的汉字加拼音（保留原有的加粗、颜色、字号等格式）
+        function convertRangeToPinyin(range) {
+            const parts = getRangeTextParts(range).reverse();
+            let count = 0;
+            parts.forEach(p => {
+                const el = p.node.parentElement;
+                if (!el || el.closest('rt, ruby, .english-line, .pinyin-inline-table')) return;
+                const sub = p.node.nodeValue.slice(p.s, p.e);
+                if (!/[\u4e00-\u9fa5]/.test(sub)) return;
+                const t = splitTextPart(p);
+                const clean = t.nodeValue.replace(/\u200B/g, '');
+                t.parentNode.replaceChild(buildPinyinFragment(clean), t);
+                count++;
+            });
+            return count;
+        }
+
+        // 先在选区末尾放一个临时标记，再加拼音，这样加完以后还能准确找到“选区结束的位置”
+        function convertRangeToPinyinKeepEnd(range) {
+            const endMark = document.createElement('span');
+            endMark.setAttribute('data-end-mark', '1');
+            const er = range.cloneRange();
+            er.collapse(false);
+            er.insertNode(endMark);
+            const count = convertRangeToPinyin(range);
+            return { count, endMark };
+        }
+
+        // 取选区的纯文字（不含拼音 rt、不含已有翻译）
+        function getSelectionPlainText(range) {
+            const div = document.createElement('div');
+            div.appendChild(range.cloneContents());
+            div.querySelectorAll('rt, .py-top, .english-line').forEach(n => n.remove());
+            return div.textContent.replace(/\u200B/g, '').trim();
+        }
+
+        function addPinyinToSelection(range, selectedText) {
+            if (!/[\u4e00-\u9fa5]/.test(selectedText)) { alert('选中的内容里没有汉字！'); return; }
+            saveHistoryImmediate();
+            const res = convertRangeToPinyinKeepEnd(range);
+            const mark = res.endMark;
+            const par = mark.parentNode;
+            const idx = Array.prototype.indexOf.call(par.childNodes, mark);
+            mark.remove();
+
+            const nr = document.createRange();
+            nr.setStart(par, idx);
+            nr.collapse(true);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(nr);
+
             setTimeout(saveHistoryImmediate, 50);
+        }
+
+        // ================= 翻译相关 =================
+        function getTargetLang() { return document.getElementById('targetLang').value; }
+
+        function createTranslationBlock(lang) {
+            const block = document.createElement('div');
+            block.className = 'english-line';
+            block.style.margin = '4px 0 0 0';
+            const tag = document.createElement('span');
+            tag.style.fontWeight = 'bold';
+            tag.textContent = `[${lang}]`;
+            const wait = document.createElement('span');
+            wait.style.cssText = 'color:#94a3b8; font-style:italic;';
+            wait.textContent = ' (翻译中...)';
+            block.appendChild(tag);
+            block.appendChild(wait);
+            return block;
+        }
+
+        function setTranslationContent(block, lang, translation) {
+            block.textContent = '';
+            const tag = document.createElement('span');
+            tag.style.fontWeight = 'bold';
+            tag.textContent = `[${lang}]`;
+            block.appendChild(tag);
+            block.appendChild(document.createTextNode(' ' + translation));
+        }
+
+        async function requestTranslation(text, lang) {
+            const systemInstruction = `你是一位精通中文和${lang}的资深翻译。请将用户选中的中文翻译成${lang}。要求：译文必须地道、自然，符合${lang}母语者的表达习惯，避免生硬的直译。只输出译文，不要任何解释。`;
+            const prompt = `Translate the following Chinese text to ${lang}. ONLY output the translation without any extra explanation: "${text}"`;
+            try {
+                return await callAI(prompt, systemInstruction, null, true);
+            } catch (e) {
+                return "(翻译失败: " + e.message + ")";
+            }
+        }
+
+        // 翻译是异步完成的：如果历史记录还停在“翻译中”那一步，就直接更新它，避免撤销时回到“翻译中...”
+        function saveAfterAsync(snapBefore) {
+            if (historyIndex >= 0 && historyStack[historyIndex] === snapBefore) {
+                historyStack[historyIndex] = whiteboard.innerHTML;
+            } else {
+                saveHistoryImmediate();
+            }
         }
 
         async function translateSelection(range, selectedText) {
-            const targetLang = document.getElementById('targetLang').value;
-            
-            const systemInstruction = `你是一位精通中文和${targetLang}的资深翻译。请将用户选中的中文翻译成${targetLang}。要求：译文必须地道、自然，符合${targetLang}母语者的表达习惯，避免生硬的直译。只输出译文，不要任何解释。`;
-            const prompt = `Translate the following Chinese text to ${targetLang}. ONLY output the translation without any extra explanation: "${selectedText}"`;
-
-            let translation = "";
-            try { 
-                translation = await callAI(prompt, systemInstruction, null, true); 
-            } 
-            catch (e) { translation = "(翻译失败: " + e.message + ")"; }
+            range = range.cloneRange();
+            const lang = getTargetLang();
+            const plain = getSelectionPlainText(range) || selectedText;
+            const translation = await requestTranslation(plain, lang);
 
             const container = document.createElement('div');
             container.style.margin = '8px 0';
             container.style.display = 'block';
-            
             container.appendChild(range.cloneContents());
 
-            const block = document.createElement('div'); 
-            block.className = 'english-line'; 
-            block.style.margin = '4px 0 0 0'; 
-            block.innerHTML = `<span style="font-weight:bold;">[${targetLang}]</span> ${translation}`;
+            const block = createTranslationBlock(lang);
+            setTranslationContent(block, lang, translation);
             container.appendChild(block);
 
-            range.deleteContents(); 
+            range.deleteContents();
             range.insertNode(container);
-            
-            const newRange = document.createRange(); 
-            newRange.setStartAfter(container); 
+
+            const newRange = document.createRange();
+            newRange.setStartAfter(container);
             newRange.collapse(true);
             const selection = window.getSelection();
-            selection.removeAllRanges(); 
-            selection.addRange(newRange); 
-            
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
             setTimeout(saveHistoryImmediate, 50);
         }
 
-        // 新增：合并加拼音和翻译为一步操作
+        // 选中文字 + Ctrl/Cmd+Enter：一步完成拼音 + 翻译
         async function combinePinyinAndTranslate(range, selectedText) {
-            const targetLang = document.getElementById('targetLang').value;
-            
-            // 创建外层包裹块
-            const container = document.createElement('div');
-            container.style.margin = '8px 0';
-            container.style.display = 'block';
+            const lang = getTargetLang();
+            const plain = getSelectionPlainText(range) || selectedText;
+            saveHistoryImmediate();
 
-            // 1. 生成拼音表格
-            const tbl = document.createElement('table');
-            tbl.className = 'pinyin-inline-table';
-            const trPy = document.createElement('tr');
-            const trZh = document.createElement('tr');
+            const res = convertRangeToPinyinKeepEnd(range);
+            const block = createTranslationBlock(lang);
+            res.endMark.replaceWith(block);
 
-            for (let char of selectedText) {
-                const tdPy = document.createElement('td');
-                const tdZh = document.createElement('td');
-
-                if (/[\u4e00-\u9fa5]/.test(char)) {
-                    const py = (typeof window.pinyinPro !== 'undefined') ? window.pinyinPro.pinyin(char, { toneType: 'symbol' }) : '';
-                    
-                    const topPy = document.createElement('span');
-                    topPy.className = 'py-top';
-                    topPy.textContent = py;
-                    
-                    const bottomZh = document.createElement('span');
-                    bottomZh.className = 'py-bottom';
-                    bottomZh.textContent = char;
-                    
-                    tdPy.appendChild(topPy);
-                    tdZh.appendChild(bottomZh);
-                    tdPy.style.verticalAlign = 'bottom';
-                    tdZh.style.verticalAlign = 'top';
-                } else { 
-                    const tdSpan = document.createElement('td');
-                    tdSpan.textContent = char;
-                    tdSpan.rowSpan = 2;
-                    tdSpan.style.verticalAlign = 'bottom';
-                    
-                    trPy.appendChild(tdSpan);
-                    continue;
-                }
-                trPy.appendChild(tdPy);
-                trZh.appendChild(tdZh);
-            }
-            
-            tbl.appendChild(trPy);
-            if (trZh.hasChildNodes()) tbl.appendChild(trZh);
-            
-            container.appendChild(tbl);
-
-            // 2. 生成翻译块（先显示加载中）
-            const block = document.createElement('div'); 
-            block.className = 'english-line'; 
-            block.style.margin = '4px 0 0 0'; 
-            block.innerHTML = `<span style="font-weight:bold;">[${targetLang}]</span> <span style="color:#94a3b8; font-style:italic;">(翻译中...)</span>`;
-            container.appendChild(block);
-
-            // 替换原有的选中文本
-            range.deleteContents(); 
-            range.insertNode(container);
-            
-            // 将光标移到翻译块后
-            const newRange = document.createRange(); 
-            newRange.setStartAfter(container); 
-            newRange.collapse(true);
+            const z = document.createTextNode('\u200B');
+            block.after(z);
+            const nr = document.createRange();
+            nr.setStart(z, 1);
+            nr.collapse(true);
             const selection = window.getSelection();
-            selection.removeAllRanges(); 
-            selection.addRange(newRange); 
+            selection.removeAllRanges();
+            selection.addRange(nr);
 
-            saveHistoryImmediate(); // 先把拼音和占位翻译存起来
-
-            // 3. 发起翻译请求，拿到结果后更新翻译块
-            const systemInstruction = `你是一位精通中文和${targetLang}的资深翻译。请将用户选中的中文翻译成${targetLang}。要求：译文必须地道、自然，符合${targetLang}母语者的表达习惯，避免生硬的直译。只输出译文，不要任何解释。`;
-            const prompt = `Translate the following Chinese text to ${targetLang}. ONLY output the translation without any extra explanation: "${selectedText}"`;
-
-            let translation = "";
-            try { 
-                translation = await callAI(prompt, systemInstruction, null, true); 
-            } 
-            catch (e) { translation = "(翻译失败: " + e.message + ")"; }
-
-            block.innerHTML = `<span style="font-weight:bold;">[${targetLang}]</span> ${translation}`;
-            setTimeout(saveHistoryImmediate, 50); // 翻译完成后再次保存历史
+            saveHistoryImmediate();
+            const snap = historyStack[historyIndex];
+            const translation = await requestTranslation(plain, lang);
+            setTranslationContent(block, lang, translation);
+            saveAfterAsync(snap);
         }
 
-        // 保留原来按钮的功能
-        document.getElementById('btnAddPinyin').addEventListener('click', function() {
-            const selection = window.getSelection(); if (!selection.rangeCount) return;
-            const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
-            if (!selectedText) { alert('请先用鼠标选中需要加拼音的汉字！'); return; }
-            addPinyinToSelection(range, selectedText);
+        // ================= 输入完一行后直接回车：自动加拼音 + 翻译 =================
+        function isLineBreakNode(n) {
+            if (n.nodeType !== 1) return false;
+            if (n.tagName === 'BR') return true;
+            return /^(block|flex|list-item|table|grid)$/.test(window.getComputedStyle(n).display);
+        }
+
+        // 返回 true 表示已处理（需要阻止默认的回车换行），false 表示这一行不需要处理
+        function handleEnterOnLine(caret) {
+            const sc = caret.startContainer;
+            const el0 = sc.nodeType === 3 ? sc.parentElement : sc;
+            if (!el0 || !whiteboard.contains(el0)) return false;
+            if (el0.closest('.english-line, ruby, table, .pptx-import')) return false;
+
+            let container = el0.closest('p, div, li, h1, h2, h3, h4, h5, h6, blockquote');
+            if (!container || !whiteboard.contains(container)) container = whiteboard;
+
+            // 找到光标所在这一“行”的边界（以 <br> 或块级元素为界）
+            let prevStart, nextStart;
+            if (sc === container) {
+                prevStart = container.childNodes[caret.startOffset - 1] || null;
+                nextStart = container.childNodes[caret.startOffset] || null;
+            } else {
+                let top = sc;
+                while (top.parentNode !== container) top = top.parentNode;
+                prevStart = top.previousSibling;
+                nextStart = top.nextSibling;
+            }
+            let prev = prevStart;
+            while (prev && !isLineBreakNode(prev)) prev = prev.previousSibling;
+            let next = nextStart;
+            while (next && !isLineBreakNode(next)) next = next.nextSibling;
+
+            const lineRange = document.createRange();
+            if (prev) lineRange.setStartAfter(prev); else lineRange.setStart(container, 0);
+            if (next) lineRange.setEndBefore(next); else lineRange.setEnd(container, container.childNodes.length);
+
+            const lineText = lineRange.toString().replace(/\u200B/g, '').trim();
+            if (!/[\u4e00-\u9fa5]/.test(lineText)) return false;           // 没有汉字：正常换行
+            const frag = lineRange.cloneContents();
+            if (frag.querySelector('ruby, table, .english-line, img, .resizable-img-wrapper')) return false; // 已处理过：正常换行
+
+            const lang = getTargetLang();
+            saveHistoryImmediate();       // 先保存加拼音之前的状态，方便撤销
+            convertRangeToPinyin(lineRange);
+
+            const block = createTranslationBlock(lang);
+            let caretNode, caretOffset;
+            const wholeBlock = container !== whiteboard && !prev && !next && /^(P|DIV)$/.test(container.tagName);
+            if (wholeBlock) {
+                // 这一行就是一个完整段落：翻译放在段落下面，再新开一个空段落给光标
+                const newLine = document.createElement(container.tagName === 'P' ? 'p' : 'div');
+                newLine.appendChild(document.createElement('br'));
+                container.after(block);
+                block.after(newLine);
+                caretNode = newLine; caretOffset = 0;
+            } else {
+                const z = document.createTextNode('\u200B');
+                if (next) { container.insertBefore(block, next); container.insertBefore(z, next); }
+                else { container.appendChild(block); container.appendChild(z); }
+                caretNode = z; caretOffset = 1;
+            }
+
+            const nr = document.createRange();
+            nr.setStart(caretNode, caretOffset);
+            nr.collapse(true);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(nr);
+
+            saveHistoryImmediate();
+            const snap = historyStack[historyIndex];
+            requestTranslation(lineText, lang).then(t => {
+                setTranslationContent(block, lang, t);
+                saveAfterAsync(snap);
+            });
+            return true;
+        }
+
+        // ================= 只放大 / 缩小选中的文字 =================
+        // 返回 true 表示已对选中文字处理；false 表示没有有效选区
+        function resizeSelectedText(delta) {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+            const range = sel.getRangeAt(0);
+            if (!whiteboard.contains(range.commonAncestorContainer)) return false;
+
+            saveHistoryImmediate();
+            const parts = getRangeTextParts(range).reverse();
+            const targets = [];
+            const seen = new Set();
+
+            parts.forEach(p => {
+                if (!/\S/.test(p.node.nodeValue.slice(p.s, p.e))) return;
+                const el = p.node.parentElement;
+                if (!el) return;
+
+                // 带拼音的文字：整个 ruby 一起缩放，这样拼音会跟着一起变大/变小
+                const group = el.closest('ruby, .pinyin-inline-table');
+                if (group) {
+                    if (!seen.has(group)) { seen.add(group); targets.push(group); }
+                    return;
+                }
+
+                // 普通文字：只把选中的那一段包进 span，设置字号
+                const t = splitTextPart(p);
+                let span = t.parentElement;
+                if (!(span && span.dataset && span.dataset.fs === '1' && span.childNodes.length === 1)) {
+                    span = document.createElement('span');
+                    span.dataset.fs = '1';
+                    t.parentNode.insertBefore(span, t);
+                    span.appendChild(t);
+                }
+                targets.push(span);
+            });
+
+            if (targets.length === 0) return false;
+
+            const sizes = targets.map(el => parseFloat(window.getComputedStyle(el).fontSize) || currentFontSize);
+            targets.forEach((el, i) => {
+                el.style.fontSize = Math.min(200, Math.max(10, sizes[i] + delta)) + 'px';
+            });
+
+            // 保持选中状态，方便连续点击 A+ / A-
+            targets.reverse();
+            const nr = document.createRange();
+            nr.setStartBefore(targets[0]);
+            nr.setEndAfter(targets[targets.length - 1]);
+            sel.removeAllRanges();
+            sel.addRange(nr);
+
+            saveHistoryImmediate();
+            setTimeout(resizeCanvas, 100);
+            return true;
+        }
+
+        // ===== 三个切换按钮：拼音 / 核心词汇下划线 / 翻译 =====
+        function selectionHasAny(selector) {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+            const range = selection.getRangeAt(0);
+            let has = false;
+            whiteboard.querySelectorAll(selector).forEach(node => {
+                try { if (range.intersectsNode(node)) has = true; } catch (e) {}
+            });
+            return { range, has };
+        }
+
+        document.getElementById('btnTogglePinyin').addEventListener('click', function() {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                alert('请先用鼠标选中文字！'); return;
+            }
+            const range = selection.getRangeAt(0);
+            const selectedText = selection.toString().trim();
+            if (!selectedText) { alert('请先用鼠标选中文字！'); return; }
+            const info = selectionHasAny('.pinyin-inline-table, ruby');
+            if (info && info.has) {
+                removeSelectedElements('.pinyin-inline-table, ruby', restorePinyinText, '选中的范围内没有拼音。');
+            } else {
+                addPinyinToSelection(range, selectedText);
+            }
         });
 
-        document.getElementById('btnTranslate').addEventListener('click', async function() {
-            const selection = window.getSelection(); if (!selection.rangeCount) return;
-            const range = selection.getRangeAt(0); const selectedText = selection.toString().trim();
-            if (!selectedText) { alert('请先用鼠标选中需要翻译的汉字！'); return; }
-            translateSelection(range, selectedText);
+        document.getElementById('btnToggleUnderline').addEventListener('click', function() {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                alert('请先用鼠标选中文字！'); return;
+            }
+            const range = selection.getRangeAt(0);
+            const selectedText = selection.toString().trim();
+            if (!selectedText) { alert('请先用鼠标选中文字！'); return; }
+            const info = selectionHasAny('.core-vocab');
+            if (info && info.has) {
+                removeSelectedElements('.core-vocab', node => node.textContent, '选中的范围内没有核心词汇下划线。');
+            } else {
+                const wrapper = document.createElement('span');
+                wrapper.className = 'core-vocab';
+                wrapper.textContent = selectedText;
+                range.deleteContents();
+                range.insertNode(wrapper);
+                const newRange = document.createRange();
+                newRange.setStartAfter(wrapper);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+                setTimeout(saveHistoryImmediate, 50);
+            }
         });
+
+        document.getElementById('btnToggleTranslate').addEventListener('click', function() {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                alert('请先用鼠标选中文字！'); return;
+            }
+            const range = selection.getRangeAt(0);
+            const selectedText = selection.toString().trim();
+            if (!selectedText) { alert('请先用鼠标选中文字！'); return; }
+            const info = selectionHasAny('.english-line');
+            if (info && info.has) {
+                removeSelectedElements('.english-line', () => null, '选中的范围内没有翻译。');
+            } else {
+                translateSelection(range, selectedText);
+            }
+        });
+        // ===== 切换按钮结束 =====
+
+        // 点击工具栏按钮时，不让编辑区失去焦点/选区（保证 A+、A-、拼音等对选中文字生效）
+        document.querySelectorAll('.toolbar-btn').forEach(btn => {
+            btn.addEventListener('mousedown', e => e.preventDefault());
+        });
+        document.getElementById('btnToggleTranslate').addEventListener('mousedown', e => e.preventDefault());
 
         // ======== 课堂测验 (全覆盖出题 + 题型双语注释 + 短文填空，去掉题型四前缀) ========
         document.getElementById('btnQuiz').addEventListener('click', async function() {
@@ -1955,11 +2188,11 @@ ${detectedLang}翻译
 | 例子 | lì zi | 名词 | example |
 
 **二、重点语法/ Key Grammar Points**
-1、【"语法点名称"】
-【用法说明】...
+1、【"语法点名称" / "Grammar Point Name (English)"】
+【用法说明 / Usage】...（先写中文用法说明；必须紧接着用 "English Note: ..." 给出该语法点的英文注释）
 1）、例句
 pīn yīn
-Translation
+${detectedLang}翻译
 
 **三、典型例句/ Typical Example Sentences**
 ...
@@ -1984,8 +2217,8 @@ ${detectedLang}翻译
 | 例子 | lì zi | 名词 | example |
 
 **二、重点语法/ Key Grammar Points**
-1、【"语法点名称"】
-【用法说明】...
+1、【"语法点名称" / "Grammar Point Name (English)"】
+【用法说明 / Usage】...（先写中文用法说明；必须紧接着用 "English Note: ..." 给出该语法点的英文注释）
 1）、例句
 pīn yīn
 Translation
@@ -2350,7 +2583,7 @@ ${sourceText}`;
             finalHtml += `<div style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-family:'Arial', sans-serif; font-size:1.1em; color:#1e293b; font-weight:bold;">`;
             finalHtml += `<span style="color:#1d4ed8; margin-right:10px;">【备选词库】</span> ${wordBankHtml}`;
             finalHtml += `</div>`;
-            finalHtml += `<div style="line-height: 2.8; padding: 10px; font-size: 1.1em;">${tempDiv.innerHTML}</div>`;
+            finalHtml += `<div style="line-height: 2; padding: 10px; font-size: 1.1em;">${tempDiv.innerHTML}</div>`;
             finalHtml += `</div>`;
 
             // 追加到白板底部

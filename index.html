@@ -573,7 +573,7 @@
         { account: "aurora", password: "123456" },
         { account: "sheng", password: "123456" },
         { account: "lynn", password: "123456" },
-        { account: "小K", password: "123456" },
+        { account: "xiaoK", password: "123456" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 
@@ -2102,7 +2102,7 @@ ${sourceText}`;
             btn.disabled = true;
             loadingOverlay.classList.remove('hidden');
 
-            const prompt = `你是一个极度严格的 HSK3 命题专家。请根据提供的语料（或图片内容）生成一套测试题。
+            const prompt = `你是一个极度严格的 HSK 命题专家。请根据提供的语料（或图片内容）生成一套测试题。
 ${vocabPrompt}
 【语言要求】所有题目、选项和答案解析，都必须采用【中文】和【${detectedLang}】双语对照输出。
 【排版要求】

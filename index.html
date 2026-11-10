@@ -379,6 +379,10 @@
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
                 <button id="btnTogglePinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold" title="选中文字：无拼音则添加，有拼音则去除">✨ 拼音</button>
                 <button id="btnToggleUnderline" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold" title="选中文字：无下划线则标注，有下划线则去除"><u>U</u> 核心词汇</button>
+                <!-- 新增：一键撤销所有拼音和翻译 -->
+                <button id="btnRemoveAllPinyinTrans" class="toolbar-btn bg-red-50 text-red-700 border-red-200 font-bold" title="一键移除白板上所有的拼音和翻译标注">🧹 清除拼音/翻译</button>
+                <!-- 新增：鼠标划选即标注核心词汇下划线 -->
+                <button id="btnQuickUnderline" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold" title="开启后：用鼠标划选文字即自动加下划线标注；再次点击关闭">🖍️ 划选标注</button>
                 <!-- 打开字帖生成器按钮 -->
                 <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
                 <!-- 新增：根据标记直接挖空生成试题 -->
@@ -820,9 +824,6 @@
             }
         });
 
-        // 用于“空格+回车”触发加拼音/翻译：记录最后一次按空格的时间戳
-        let spacePressedForEnter = 0;
-
         // 监听按键，删除图片（退格或Delete）时，彻底清除包裹层（解决残留虚线框问题）
         whiteboard.addEventListener('keydown', function(e) {
             if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -837,53 +838,22 @@
                 }, 10);
             }
 
-            // ===== 新增：记录“刚刚是否按过空格键” =====
-            // 规则：只有“先按空格键、紧接着按回车键”才触发加拼音/翻译
-            if (e.key === ' ' || e.code === 'Space') {
-                // 只要按了空格，就记录一个短暂有效的标记（1.5 秒内按回车才算）
-                spacePressedForEnter = Date.now();
-                return; // 空格键本身保持正常输入，不做拦截
-            }
-
-            // 空格键 + 回车键：选中文字 → 加拼音 / 翻译；没选中 → 对当前这一行文字自动加拼音 + 翻译
-            if (e.key === 'Enter' && !e.shiftKey) {
+            // Ctrl+Shift+Enter：选中文字 → 加拼音 / 翻译；没选中 → 对当前这一行文字自动加拼音 + 翻译
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
                 if (e.isComposing || e.keyCode === 229) return; // 输入法正在选词时的回车，不处理
-
-                // 检查是否刚刚按过空格键（1.5 秒内有效），否则视为普通回车，正常换行
-                const isSpaceEnter = spacePressedForEnter && (Date.now() - spacePressedForEnter < 1500);
-                spacePressedForEnter = 0; // 用掉即清除，避免连续回车误触发
-
                 const selection = window.getSelection();
-                if (!selection || selection.rangeCount === 0) {
-                    if (isSpaceEnter) e.preventDefault();
-                    return;
-                }
+                if (!selection || selection.rangeCount === 0) return;
                 const range = selection.getRangeAt(0);
 
                 if (!selection.isCollapsed) {
                     const selectedText = getSelectionPlainText(range) || selection.toString().trim();
                     if (!selectedText) return;
 
-                    if (!isSpaceEnter) return; // 不是“空格+回车”，普通回车不处理选中文字，保持原有换行行为
-
+                    // Ctrl/⌘ + Shift + Enter：一键同时加拼音和翻译
                     e.preventDefault();
-                    if (e.ctrlKey || e.metaKey) {
-                        // 空格 + Ctrl + Enter：一键同时加拼音和翻译
-                        combinePinyinAndTranslate(range, selectedText);
-                    } else {
-                        // 空格 + 回车：第一次加拼音，第二次加翻译
-                        const frag = range.cloneContents();
-                        const hasPinyin = frag.querySelector('table') !== null || frag.querySelector('.py-top') !== null || frag.querySelector('ruby') !== null;
-                        const hasTranslation = frag.querySelector('.english-line') !== null;
-                        if (hasPinyin || hasTranslation) {
-                            if (!hasTranslation) translateSelection(range, selectedText);
-                        } else {
-                            addPinyinToSelection(range, selectedText);
-                        }
-                    }
+                    combinePinyinAndTranslate(range, selectedText);
                 } else {
-                    // 没有选中文字：也要“空格+回车”才处理当前行
-                    if (!isSpaceEnter) return; // 普通回车正常换行
+                    // 没有选中文字：处理光标所在的这一行
                     if (handleEnterOnLine(range)) e.preventDefault();
                 }
             }
@@ -1850,7 +1820,7 @@
             setTimeout(saveHistoryImmediate, 50);
         }
 
-        // 选中文字 + Ctrl/Cmd+Enter：一步完成拼音 + 翻译
+        // 选中文字 + Ctrl/⌘+Shift+Enter：一步完成拼音 + 翻译
         async function combinePinyinAndTranslate(range, selectedText) {
             const lang = getTargetLang();
             const plain = getSelectionPlainText(range) || selectedText;
@@ -1876,7 +1846,7 @@
             saveAfterAsync(snap);
         }
 
-        // ================= 输入完一行后直接回车：自动加拼音 + 翻译 =================
+        // ================= 没选中文字：对光标所在行自动加拼音 + 翻译 =================
         function isLineBreakNode(n) {
             if (n.nodeType !== 1) return false;
             if (n.tagName === 'BR') return true;
@@ -2563,6 +2533,150 @@ ${sourceText}`;
             document.getElementById('worksheetModal').classList.add('hidden');
             document.getElementById('worksheetModal').classList.remove('flex');
         };
+
+        // ====== 新增功能1：一键撤销所有拼音和翻译 ======
+        document.getElementById('btnRemoveAllPinyinTrans').addEventListener('click', function() {
+            const whiteboardEl = document.getElementById('whiteboardContent');
+
+            // 统计将被移除的元素数量
+            const pinyinNodes = whiteboardEl.querySelectorAll('ruby, .pinyin-inline-table');
+            const transNodes = whiteboardEl.querySelectorAll('.english-line');
+
+            if (pinyinNodes.length === 0 && transNodes.length === 0) {
+                alert('白板上没有可清除的拼音或翻译标注。');
+                return;
+            }
+
+            if (!confirm(`确定要移除白板上全部标注吗？\n\n将移除：\n· 拼音标注 ${pinyinNodes.length} 处\n· 翻译标注 ${transNodes.length} 处\n\n（文字本身会保留，其他手写内容和图片不受影响）`)) {
+                return;
+            }
+
+            saveHistoryImmediate();
+
+            // 1) 移除所有拼音：把 <ruby>字<rt>py</rt></ruby> 还原为纯文字
+            whiteboardEl.querySelectorAll('ruby').forEach(ruby => {
+                let txt = '';
+                ruby.childNodes.forEach(c => {
+                    if (c.nodeType === Node.TEXT_NODE) txt += c.textContent;
+                    else if (c.tagName && c.tagName.toLowerCase() !== 'rt') txt += c.textContent;
+                });
+                ruby.replaceWith(document.createTextNode(txt));
+            });
+
+            // 2) 移除所有表格型拼音
+            whiteboardEl.querySelectorAll('.pinyin-inline-table').forEach(tbl => {
+                const firstRow = tbl.querySelector('tr');
+                let txt = '';
+                if (firstRow) {
+                    firstRow.querySelectorAll('td').forEach(td => {
+                        const bottom = td.querySelector('.py-bottom');
+                        txt += bottom ? bottom.textContent : td.textContent;
+                    });
+                } else {
+                    txt = tbl.textContent;
+                }
+                tbl.replaceWith(document.createTextNode(txt));
+            });
+
+            // 3) 移除所有翻译块
+            whiteboardEl.querySelectorAll('.english-line').forEach(node => node.remove());
+
+            // 清理可能残留的空包裹容器（翻译时插入的 div）
+            whiteboardEl.querySelectorAll('div').forEach(div => {
+                if (!div.textContent.trim() && div.querySelectorAll('img, table, ruby, .core-vocab').length === 0) {
+                    // 只清理翻译功能产生的空 div（无样式标记、无子元素内容的）
+                    if (div.children.length === 0 || (div.children.length === 1 && div.children[0].tagName === 'BR')) {
+                        div.remove();
+                    }
+                }
+            });
+
+            saveHistoryImmediate();
+            setTimeout(resizeCanvas, 100);
+            alert('✅ 已清除白板上所有拼音和翻译标注（文字内容已保留，可通过“撤销”恢复）。');
+        });
+
+        // ====== 新增功能2：鼠标划选即标注核心词汇下划线 ======
+        let isQuickUnderlineMode = false;
+
+        function getSelectionRangeInWhiteboard() {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+            const range = sel.getRangeAt(0);
+            if (!whiteboard.contains(range.commonAncestorContainer)) return null;
+            if (!range.toString().trim()) return null;
+            return range;
+        }
+
+        function applyCoreVocabToRange(range) {
+            // 避免对已有标注、拼音、翻译、图片重复包裹
+            const frag = range.cloneContents();
+            if (frag.querySelector('.core-vocab, ruby, .pinyin-inline-table, .english-line, img, .resizable-img-wrapper')) {
+                return false;
+            }
+            const text = range.toString();
+            if (!text.trim()) return false;
+
+            // 用包裹层包住选中区域（支持跨节点选区，使用 extractContents + span 包裹）
+            const wrapper = document.createElement('span');
+            wrapper.className = 'core-vocab';
+            try {
+                wrapper.appendChild(range.extractContents());
+                range.insertNode(wrapper);
+            } catch (e) {
+                // 跨块级元素等复杂情况，回退为纯文本包裹
+                try {
+                    wrapper.textContent = text;
+                    range.deleteContents();
+                    range.insertNode(wrapper);
+                } catch (e2) {
+                    return false;
+                }
+            }
+
+            // 把光标放到标注之后，方便继续划选
+            const nr = document.createRange();
+            nr.setStartAfter(wrapper);
+            nr.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(nr);
+            return true;
+        }
+
+        document.getElementById('btnQuickUnderline').addEventListener('click', function() {
+            isQuickUnderlineMode = !isQuickUnderlineMode;
+            this.classList.toggle('btn-draw-active', isQuickUnderlineMode);
+            if (isQuickUnderlineMode) {
+                this.style.backgroundColor = '#3b82f6';
+                this.style.color = '#fff';
+                this.style.borderColor = '#2563eb';
+                alert('🖍️ 划选标注模式已开启：\n\n用鼠标划选任意文字，松手后会自动加“核心词汇”下划线。\n再次点击此按钮可关闭。');
+            } else {
+                this.style.backgroundColor = '';
+                this.style.color = '';
+                this.style.borderColor = '';
+            }
+        });
+
+        // 在 mouseup / touchend 时检测选区并自动标注
+        function handleQuickUnderlineMouseUp(e) {
+            if (!isQuickUnderlineMode) return;
+            if (isDrawMode) return; // 电子教鞭模式时不干扰
+            // 稍微延迟，等浏览器完成选区
+            setTimeout(() => {
+                const range = getSelectionRangeInWhiteboard();
+                if (!range) return;
+                if (applyCoreVocabToRange(range)) {
+                    saveHistoryImmediate();
+                    setTimeout(resizeCanvas, 80);
+                }
+            }, 20);
+        }
+
+        whiteboard.addEventListener('mouseup', handleQuickUnderlineMouseUp);
+        whiteboard.addEventListener('touchend', handleQuickUnderlineMouseUp, { passive: true });
+        // ====== 新增功能结束 ======
 
         // ====== 新增：一键挖空生成试题 ======
         document.getElementById('btnClozeTest').addEventListener('click', function() {

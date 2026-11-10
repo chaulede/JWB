@@ -154,7 +154,6 @@
     .border-purple-300 { border-color: #d8b4fe; }
     .border-red-200 { border-color: #fecaca; }
     .border-amber-200 { border-color: #fde68a; }
-    .border-slate-300 { border-color: #cbd5e1; }
     
     .rounded { border-radius: 0.25rem; }
     .rounded-lg { border-radius: 0.5rem; }
@@ -381,9 +380,7 @@
                 <button id="btnToggleUnderline" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold" title="选中文字：无下划线则标注，有下划线则去除"><u>U</u> 核心词汇</button>
                 <!-- 新增：一键撤销所有拼音和翻译 -->
                 <button id="btnRemoveAllPinyinTrans" class="toolbar-btn bg-red-50 text-red-700 border-red-200 font-bold" title="一键移除白板上所有的拼音和翻译标注">🧹 清除拼音/翻译</button>
-                <!-- 新增：鼠标划选即标注核心词汇下划线 -->
-                <button id="btnQuickUnderline" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold" title="开启后：用鼠标划选文字即自动加下划线标注；再次点击关闭">🖍️ 划选标注</button>
-                <!-- 打开字帖生成器按钮 -->
+                                <!-- 打开字帖生成器按钮 -->
                 <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
                 <!-- 新增：根据标记直接挖空生成试题 -->
                 <button id="btnClozeTest" class="toolbar-btn bg-emerald-100 text-emerald-700 border-emerald-300 font-bold">✂️ 挖空生成试题</button>
@@ -2475,7 +2472,6 @@ ${sourceText}`;
         }
         function startStroke(e) {
             if (!isDrawMode) return;
-            if (e.touches) e.preventDefault();
             e.stopPropagation();
             e.preventDefault();
             isDrawing = true; const p = getPos(e); strokes.push({ color: penColor, points: [p] });
@@ -2523,7 +2519,7 @@ ${sourceText}`;
         });
         observer.observe(whiteboard, { childList: true, subtree: true, characterData: true });
 
-        // ====== 新增：字帖弹窗打开与关闭 ======
+        // ====== 字帖弹窗打开与关闭 ======
         document.getElementById('btnOpenWorksheet').addEventListener('click', function() {
             document.getElementById('worksheetModal').classList.remove('hidden');
             document.getElementById('worksheetModal').classList.add('flex');
@@ -2596,89 +2592,7 @@ ${sourceText}`;
             alert('✅ 已清除白板上所有拼音和翻译标注（文字内容已保留，可通过“撤销”恢复）。');
         });
 
-        // ====== 新增功能2：鼠标划选即标注核心词汇下划线 ======
-        let isQuickUnderlineMode = false;
-
-        function getSelectionRangeInWhiteboard() {
-            const sel = window.getSelection();
-            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
-            const range = sel.getRangeAt(0);
-            if (!whiteboard.contains(range.commonAncestorContainer)) return null;
-            if (!range.toString().trim()) return null;
-            return range;
-        }
-
-        function applyCoreVocabToRange(range) {
-            // 避免对已有标注、拼音、翻译、图片重复包裹
-            const frag = range.cloneContents();
-            if (frag.querySelector('.core-vocab, ruby, .pinyin-inline-table, .english-line, img, .resizable-img-wrapper')) {
-                return false;
-            }
-            const text = range.toString();
-            if (!text.trim()) return false;
-
-            // 用包裹层包住选中区域（支持跨节点选区，使用 extractContents + span 包裹）
-            const wrapper = document.createElement('span');
-            wrapper.className = 'core-vocab';
-            try {
-                wrapper.appendChild(range.extractContents());
-                range.insertNode(wrapper);
-            } catch (e) {
-                // 跨块级元素等复杂情况，回退为纯文本包裹
-                try {
-                    wrapper.textContent = text;
-                    range.deleteContents();
-                    range.insertNode(wrapper);
-                } catch (e2) {
-                    return false;
-                }
-            }
-
-            // 把光标放到标注之后，方便继续划选
-            const nr = document.createRange();
-            nr.setStartAfter(wrapper);
-            nr.collapse(true);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(nr);
-            return true;
-        }
-
-        document.getElementById('btnQuickUnderline').addEventListener('click', function() {
-            isQuickUnderlineMode = !isQuickUnderlineMode;
-            this.classList.toggle('btn-draw-active', isQuickUnderlineMode);
-            if (isQuickUnderlineMode) {
-                this.style.backgroundColor = '#3b82f6';
-                this.style.color = '#fff';
-                this.style.borderColor = '#2563eb';
-                alert('🖍️ 划选标注模式已开启：\n\n用鼠标划选任意文字，松手后会自动加“核心词汇”下划线。\n再次点击此按钮可关闭。');
-            } else {
-                this.style.backgroundColor = '';
-                this.style.color = '';
-                this.style.borderColor = '';
-            }
-        });
-
-        // 在 mouseup / touchend 时检测选区并自动标注
-        function handleQuickUnderlineMouseUp(e) {
-            if (!isQuickUnderlineMode) return;
-            if (isDrawMode) return; // 电子教鞭模式时不干扰
-            // 稍微延迟，等浏览器完成选区
-            setTimeout(() => {
-                const range = getSelectionRangeInWhiteboard();
-                if (!range) return;
-                if (applyCoreVocabToRange(range)) {
-                    saveHistoryImmediate();
-                    setTimeout(resizeCanvas, 80);
-                }
-            }, 20);
-        }
-
-        whiteboard.addEventListener('mouseup', handleQuickUnderlineMouseUp);
-        whiteboard.addEventListener('touchend', handleQuickUnderlineMouseUp, { passive: true });
-        // ====== 新增功能结束 ======
-
-        // ====== 新增：一键挖空生成试题 ======
+        // ====== 新增功能2：一键挖空生成试题 ======
         document.getElementById('btnClozeTest').addEventListener('click', function() {
             const originalNodes = whiteboard.querySelectorAll('.core-vocab');
             if (originalNodes.length === 0) {

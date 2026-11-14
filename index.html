@@ -378,11 +378,8 @@
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
                 <button id="btnTogglePinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold" title="选中文字：无拼音则添加，有拼音则去除">✨ 拼音</button>
                 <button id="btnToggleUnderline" class="toolbar-btn bg-blue-50 text-blue-700 border-blue-200 font-bold" title="选中文字：无下划线则标注，有下划线则去除"><u>U</u> 核心词汇</button>
-                <!-- 新增：一键撤销所有拼音和翻译 -->
                 <button id="btnRemoveAllPinyinTrans" class="toolbar-btn bg-red-50 text-red-700 border-red-200 font-bold" title="一键移除白板上所有的拼音和翻译标注">🧹 清除拼音/翻译</button>
-                                <!-- 打开字帖生成器按钮 -->
                 <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
-                <!-- 新增：根据标记直接挖空生成试题 -->
                 <button id="btnClozeTest" class="toolbar-btn bg-emerald-100 text-emerald-700 border-emerald-300 font-bold">✂️ 挖空生成试题</button>
                 
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
@@ -405,6 +402,8 @@
                 </div>
                 <button id="btnUndo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↩️ 撤销</button>
                 <button id="btnRedo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↪️ 还原</button>
+                <!-- 新增的清空白板按钮 -->
+                <button id="btnClearBoard" class="toolbar-btn bg-red-100 text-red-700 border-red-300 font-bold" title="一键清空白板上的所有内容">🗑️ 清空白板</button>
             </div>
         </div>
 
@@ -498,7 +497,6 @@
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">📚 一键整理白板笔记</button>
             <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1.5 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载复习笔记 (Word)</button>
             <button id="btnGenEx" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition text-sm cursor-pointer flex justify-center items-center mt-2 border-t border-slate-200 pt-3">✍️ 生成全套测试题</button>
-            <!-- 这两个按钮的显示由新的弹窗逻辑控制，保留以兼容其他可能触发 -->
             <button id="btnDownloadExStudent" class="hidden w-full bg-blue-600 text-white py-1.5 rounded-lg text-xs hover:bg-blue-700 transition cursor-pointer">📥 下载学生版测试题 (无答案)</button>
             <button id="btnDownloadExTeacher" class="hidden w-full bg-indigo-700 text-white py-1.5 rounded-lg text-xs hover:bg-indigo-800 transition cursor-pointer">📥 下载教师版测试题 (含答案)</button>
         </div>
@@ -523,9 +521,8 @@
     </div>
 </div>
 
-<!-- 字帖 Modal (尺寸全屏撑开，默认隐藏，点击才出现) -->
+<!-- 字帖 Modal -->
 <div id="worksheetModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 justify-center items-center">
-    <!-- 强制宽高为 95vw 和 95vh -->
     <div class="bg-white shadow-2xl flex flex-col overflow-hidden" style="width: 95vw !important; height: 95vh !important; border-radius: 12px;">
         <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
             <h2 class="text-lg font-bold text-slate-800">📝 汉字笔顺描红字帖生成器</h2>
@@ -545,7 +542,6 @@
         if (typeof mammoth === 'undefined') console.warn("⚠️ Mammoth.js 未加载");
         if (typeof pinyinPro === 'undefined') console.warn("⚠️ pinyin-pro 未加载");
 
-        // 修复登录状态检测
         const savedAuth = localStorage.getItem('teacher_whiteboard_auth');
         if (savedAuth === 'true') {
             document.getElementById('authOverlay').style.display = 'none';
@@ -618,21 +614,18 @@
                   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    // 免费兜底 Key 留空，你可以填入自己的智谱 API Key（完全免费）
     const FREE_ZHIPU_KEY = ""; 
 
     async function callAI(prompt, systemInstruction = "你是一个专业的国际中文与多国语言教学助手。", imageBase64 = null, isTranslation = false) {
         let apiKey = document.getElementById('apiKey').value.trim();
         let provider = document.getElementById('modelProvider').value;
 
-        // 免费兜底逻辑：如果没有任何 Key，且是翻译，默认走免 Key 的公共接口
         if (isTranslation && !apiKey) {
             const targetLangMatch = systemInstruction.match(/翻译成([^\s，。]+)/);
             const targetLang = targetLangMatch ? targetLangMatch[1] : 'English';
             let sourceText = prompt.match(/"([^"]+)"$/) || prompt.match(/"([^"]+)"/);
             sourceText = sourceText ? sourceText[1] : prompt;
             
-            // 使用无需 Key 的 MyMemory 免费翻译 API (每天 5000 字符)
             const langMap = { 'English': 'en', 'French': 'fr', 'Japanese': 'ja', 'Korean': 'ko', 'German': 'de', 'Italian': 'it', 'Spanish': 'es', 'Russian': 'ru', 'Thai': 'th', 'Vietnamese': 'vi', 'Indonesian': 'id', 'Polish': 'pl', 'Kazakh': 'kk' };
             const targetCode = langMap[targetLang] || 'en';
             const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(sourceText)}&langpair=zh-CN|${targetCode}`;
@@ -650,7 +643,6 @@
             }
         }
 
-        // 如果选择了智谱，或者原本没填 Key 但填了免费兜底 Key
         if (provider === 'zhipu' || (!apiKey && FREE_ZHIPU_KEY)) {
             if (!apiKey) apiKey = FREE_ZHIPU_KEY;
             if (!apiKey) { alert('请在右侧填入智谱 API Key！'); throw new Error('未填写 Key'); }
@@ -710,7 +702,6 @@
             return (data.content || []).map(b => b.text || '').join('').trim();
         }
 
-        // 默认 DeepSeek
         let url = "https://api.deepseek.com/chat/completions"; 
         let modelName = "deepseek-chat"; 
 
@@ -733,7 +724,6 @@
         return img && img.src ? img.src : null;
     }
 
-    // 核心功能：提取白板上的核心词汇（划线标注 + 序号规则识别）
     function getCoreVocabularies() {
         const whiteboard = document.getElementById('whiteboardContent');
         let vocabs = [];
@@ -776,7 +766,6 @@
         const scrollContainer = document.getElementById('whiteboardScrollContainer');
         const innerWrapper = document.getElementById('whiteboardInnerWrapper');
 
-        // 粘贴图片功能
         whiteboard.addEventListener('paste', function(e) {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             for (let index in items) {
@@ -785,10 +774,8 @@
                     const blob = item.getAsFile();
                     const reader = new FileReader();
                     reader.onload = function(event) {
-                        // 使用包裹层包裹图片，实现控制手柄
                         const wrapper = document.createElement('span');
                         wrapper.className = 'resizable-img-wrapper';
-                        // 默认给一个初始大小，避免拉伸变形
                         wrapper.style.width = '300px';
                         wrapper.style.height = '200px';
 
@@ -797,7 +784,6 @@
                         
                         wrapper.appendChild(img);
                         
-                        // 在包裹层后追加一个零宽空格，辅助光标跳出，避免删不掉图片
                         const space = document.createTextNode('\u200B');
 
                         const sel = window.getSelection();
@@ -805,7 +791,6 @@
                             const range = sel.getRangeAt(0);
                             range.deleteContents();
                             range.insertNode(wrapper);
-                            // 再插入零宽空格，方便后续点选
                             const newRange = document.createRange();
                             newRange.setStartAfter(wrapper);
                             newRange.collapse(true);
@@ -822,13 +807,11 @@
             }
         });
 
-        // 监听按键，删除图片（退格或Delete）时，彻底清除包裹层（解决残留虚线框问题）
         whiteboard.addEventListener('keydown', function(e) {
             if (e.key === 'Backspace' || e.key === 'Delete') {
                 setTimeout(() => {
                     const wrappers = whiteboard.querySelectorAll('.resizable-img-wrapper');
                     wrappers.forEach(wr => {
-                        // 如果包裹层里面已经没有图片了，连壳子一起删掉
                         if (!wr.querySelector('img')) {
                             wr.remove();
                         }
@@ -836,9 +819,8 @@
                 }, 10);
             }
 
-            // Ctrl+Shift+Enter：选中文字 → 加拼音 / 翻译；没选中 → 对当前这一行文字自动加拼音 + 翻译
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
-                if (e.isComposing || e.keyCode === 229) return; // 输入法正在选词时的回车，不处理
+                if (e.isComposing || e.keyCode === 229) return;
                 const selection = window.getSelection();
                 if (!selection || selection.rangeCount === 0) return;
                 const range = selection.getRangeAt(0);
@@ -847,11 +829,9 @@
                     const selectedText = getSelectionPlainText(range) || selection.toString().trim();
                     if (!selectedText) return;
 
-                    // Ctrl/⌘ + Shift + Enter：一键同时加拼音和翻译
                     e.preventDefault();
                     combinePinyinAndTranslate(range, selectedText);
                 } else {
-                    // 没有选中文字：处理光标所在的这一行
                     if (handleEnterOnLine(range)) e.preventDefault();
                 }
             }
@@ -910,17 +890,44 @@
             reader.readAsText(file, 'UTF-8');
         });
 
+        // === 升级版：加载云端库（支持动态扫描文件夹） ===
         document.getElementById('btnLoadCloudKb').addEventListener('click', async function() {
-            const files = ['A1A2.json', 'B1.json', 'B2.json', 'HSK_synonyms_all.json'];
+            const choice = prompt("请选择要加载的云端库：\n\n输入 1：加载 云端一 (根目录 HSK 库)\n输入 2：加载 云端二 (语法库)\n输入 1,2：同时加载两个库并合并", "1");
+            
+            if (!choice) return; 
+
             const btn = this;
             const originalText = btn.innerHTML;
             btn.innerHTML = "加载中...";
             btn.disabled = true;
 
-            let allLoadedData = [];
+            let filesToLoad = [];
+            let loadName = "";
 
             try {
-                const promises = files.map(fileName => {
+                if (choice.trim() === '1' || choice.trim() === '1,2') {
+                    const res1 = await fetch(`./list1.json?t=${new Date().getTime()}`);
+                    if (res1.ok) {
+                        const list1 = await res1.json();
+                        filesToLoad = filesToLoad.concat(list1.map(f => f));
+                    }
+                    if(choice.trim() === '1') loadName = "云端一 (根目录)";
+                }
+                
+                if (choice.trim() === '2' || choice.trim() === '1,2') {
+                    const res2 = await fetch(`./grammar/list2.json?t=${new Date().getTime()}`);
+                    if (res2.ok) {
+                        const list2 = await res2.json();
+                        filesToLoad = filesToLoad.concat(list2.map(f => `grammar/${f}`));
+                    }
+                    if(choice.trim() === '2') loadName = "云端二 (grammar目录)";
+                }
+
+                if (choice.trim() === '1,2') loadName = "云端一+云端二 (合并库)";
+                if (filesToLoad.length === 0) throw new Error("没有找到任何文件。请检查 list1.json 或 list2.json 是否正确配置。");
+
+                let allLoadedData = [];
+                const promises = filesToLoad.map(fileName => {
                     const url = `./${fileName}?t=${new Date().getTime()}`;
                     return fetch(url).then(res => {
                         if (!res.ok) throw new Error(`文件 ${fileName} 获取失败`);
@@ -942,21 +949,20 @@
                 knowledgeBase = allLoadedData;
                 
                 const kbStatus = document.getElementById('kbStatus');
-                kbStatus.textContent = `✅ 云端多库已加载 ${knowledgeBase.length} 个知识点`;
+                kbStatus.textContent = `✅ 已加载 ${loadName} (共${filesToLoad.length}个文件，${knowledgeBase.length} 个知识点)`;
                 kbStatus.classList.add('text-green-600');
                 kbStatus.classList.remove('text-indigo-400');
                 document.getElementById('kbResults').classList.add('hidden');
                 
             } catch (err) {
                 console.error(err);
-                alert('云端知识库加载失败：\n' + err.message + '\n\n请确认你的 GitHub 仓库中包含这四个文件。');
+                alert(`加载失败：\n` + err.message);
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         });
 
-        // === 新增：从 GitHub 导入逻辑 ===
         document.getElementById('btnImportGithub').addEventListener('click', async function() {
             const url = prompt('请输入您的 GitHub 仓库链接或 JSON 文件直链：\n(例如：https://github.com/用户名/仓库名)');
             if (!url || !url.trim()) return;
@@ -972,28 +978,23 @@
 
             try {
                 let rawFilesToFetch = [];
-                let cleanUrl = url.trim().replace(/\/$/, ""); // 去除末尾斜杠
+                let cleanUrl = url.trim().replace(/\/$/, ""); 
 
-                // 1. 判断是文件直链还是仓库链接
                 if (cleanUrl.endsWith('.json')) {
-                    // 提取 raw 链接
                     if (cleanUrl.includes('github.com') && !cleanUrl.includes('raw.githubusercontent.com')) {
                         cleanUrl = cleanUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
                     }
                     rawFilesToFetch.push(cleanUrl);
                 } else {
-                    // 仓库链接，提取用户名和仓库名
                     const repoMatch = cleanUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
                     if (!repoMatch) throw new Error('无法识别的 GitHub 链接格式，请检查！');
                     
                     const user = repoMatch[1];
                     const repo = repoMatch[2];
                     
-                    // 使用 jsDelivr API 获取文件树（速度快且支持CORS）
                     const treeApi = `https://data.jsdelivr.com/v1/package/gh/${user}/${repo}@main/flat`;
                     let res = await fetch(treeApi).catch(() => null);
                     
-                    // 如果 main 分支获取失败，尝试 master 分支
                     if (!res || !res.ok) {
                         const treeApiMaster = `https://data.jsdelivr.com/v1/package/gh/${user}/${repo}@master/flat`;
                         res = await fetch(treeApiMaster).catch(() => null);
@@ -1005,16 +1006,13 @@
                     
                     if (jsonFiles.length === 0) throw new Error('该仓库中未找到任何 .json 文件。');
                     
-                    // 拼接 jsDelivr CDN 下载直链
                     const branch = res.url.includes('@master') ? 'master' : 'main';
                     jsonFiles.forEach(f => {
-                        // jsDelivr 的路径如果以 / 开头需要去掉
                         const filePath = f.name.startsWith('/') ? f.name.substring(1) : f.name;
                         rawFilesToFetch.push(`https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/${filePath}`);
                     });
                 }
 
-                // 2. 并发下载所有找到的 JSON 文件
                 const fetchPromises = rawFilesToFetch.map(rawUrl => 
                     fetch(rawUrl).then(r => {
                         if (!r.ok) throw new Error(`下载文件失败: ${rawUrl}`);
@@ -1024,7 +1022,6 @@
                 
                 const results = await Promise.all(fetchPromises);
                 
-                // 3. 合并数据并解析
                 let allLoadedData = [];
                 results.forEach(data => {
                     if (Array.isArray(data)) { 
@@ -1354,15 +1351,20 @@
             
             const results = knowledgeBase.filter(item => {
                 if (!item || typeof item !== 'object') return false;
+                
                 const titleText = (item.title || item.grammar_cn || item.name || item.word || item.keyword || '').toString().toLowerCase();
+                const contentText = (item.content || item.usage || item.explanation || '').toString().toLowerCase(); // 新增：支持直接搜索正文
                 const titleEn = (item.grammar_en || item.english || '').toString().toLowerCase();
+                
                 let tagsMatch = false;
                 if (item.tags) {
                     const tagArr = Array.isArray(item.tags) ? item.tags : String(item.tags).split(/[,，\s]+/);
                     tagsMatch = tagArr.some(tag => String(tag).toLowerCase().includes(keyword));
                 }
+                
                 const fallbackMatch = JSON.stringify(item).toLowerCase().includes(keyword);
-                return titleText.includes(keyword) || titleEn.includes(keyword) || tagsMatch || fallbackMatch;
+                
+                return titleText.includes(keyword) || contentText.includes(keyword) || titleEn.includes(keyword) || tagsMatch || fallbackMatch;
             });
             
             resultsBox.innerHTML = '';
@@ -1371,11 +1373,18 @@
                 resultsBox.innerHTML = `<div class="text-xs text-slate-500 text-center py-2">没有找到“${keyword}”相关知识点</div>`;
                 return;
             }
+            
             results.slice(0, 15).forEach((item) => {
                 const div = document.createElement('div');
                 div.className = 'kb-item';
                 const title = item.grammar_cn || item.title || item.name || item.word || item.keyword || '无标题';
-                const subTitle = item.structure || item.grammar_en || item.level || (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags) || '';
+                let subTitle = item.structure || item.grammar_en || item.level || (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags);
+                if (!subTitle && item.content) {
+                    subTitle = item.content.substring(0, 30) + '...';
+                } else if (!subTitle) {
+                    subTitle = '';
+                }
+                
                 div.innerHTML = `
                     <div class="kb-title">${title}</div>
                     <div class="kb-tags">${subTitle}</div>
@@ -1408,9 +1417,10 @@
                 html += `<p style="margin-bottom:12px;"><span class="kb-label" style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:4px; font-weight:bold;">句型结构</span> <span style="font-family:monospace; margin-left:5px;">${patternText}</span></p>`;
             }
             
-            const usageText = kbItem.usage || kbItem.explanation;
+            // 兼容新格式的 content 字段
+            const usageText = kbItem.content || kbItem.usage || kbItem.explanation;
             if (usageText) {
-                html += `<p style="margin-bottom:20px;"><span class="kb-label" style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:bold;">用法说明</span> <span style="margin-left:5px; line-height: 1.6;">${String(usageText).replace(/\n/g, '<br>')}</span></p>`;
+                html += `<p style="margin-bottom:20px;"><span class="kb-label" style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:bold;">用法/解释</span> <span style="margin-left:5px; line-height: 1.6; font-size: 1.1em;">${String(usageText).replace(/\n/g, '<br>')}</span></p>`;
             }
 
             if (kbItem.examples && Array.isArray(kbItem.examples)) {
@@ -1460,23 +1470,19 @@
             setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 50);
         }
 
-        // ================= 撤销与还原（历史栈 + 指针模式） =================
-        let historyStack = [];        // 所有快照
-        let historyIndex = -1;        // 当前所处位置
+        let historyStack = [];        
+        let historyIndex = -1;        
         let isUndoRedoing = false;
         let historyTimer = null;
         const MAX_HISTORY = 100;
 
-        // 立即保存快照
         function saveHistoryImmediate() {
             if (isUndoRedoing) return;
             clearTimeout(historyTimer);
             const html = whiteboard.innerHTML;
 
-            // 内容与当前位置的快照相同，则不重复保存
             if (historyIndex >= 0 && historyStack[historyIndex] === html) return;
 
-            // 如果当前不在栈顶（撤销过），产生新操作时丢弃"未来"的记录
             historyStack = historyStack.slice(0, historyIndex + 1);
             historyStack.push(html);
 
@@ -1484,18 +1490,15 @@
             historyIndex = historyStack.length - 1;
         }
 
-        // 输入文字时的防抖保存
         function saveHistoryDebounced() {
             if (isUndoRedoing) return;
             clearTimeout(historyTimer);
             historyTimer = setTimeout(saveHistoryImmediate, 500);
         }
 
-        // 恢复到指定位置的快照
         function restoreHistory(index) {
             isUndoRedoing = true;
             whiteboard.innerHTML = historyStack[index];
-            // 关键：用浏览器"标准化"后的 HTML 回写快照，保证之后的对比一致
             historyStack[index] = whiteboard.innerHTML;
             historyIndex = index;
             isUndoRedoing = false;
@@ -1503,7 +1506,7 @@
         }
 
         function doUndo() {
-            saveHistoryImmediate(); // 先把还没来得及保存的最新修改存下来
+            saveHistoryImmediate(); 
             if (historyIndex > 0) {
                 restoreHistory(historyIndex - 1);
             } else {
@@ -1520,14 +1523,22 @@
             }
         }
 
-        // 初始化保存一次初始状态
         saveHistoryImmediate();
         whiteboard.addEventListener('input', saveHistoryDebounced);
 
         document.getElementById('btnUndo').addEventListener('click', doUndo);
         document.getElementById('btnRedo').addEventListener('click', doRedo);
 
-        // 键盘快捷键：Ctrl/Cmd+Z 撤销，Ctrl+Y 或 Ctrl/Cmd+Shift+Z 还原
+        // ===== 新增：清空白板功能 =====
+        document.getElementById('btnClearBoard').addEventListener('click', function() {
+            if (confirm('确定要清空整个白板吗？此操作可以通过点击“撤销”恢复。')) {
+                whiteboard.innerHTML = '<p><br></p>';
+                // 清空后立刻保存一次历史状态，这样用户按 Ctrl+Z 或撤销键还能找回来
+                saveHistoryImmediate();
+                setTimeout(resizeCanvas, 100);
+            }
+        });
+
         whiteboard.addEventListener('keydown', function(e) {
             if (!(e.ctrlKey || e.metaKey)) return;
             const k = e.key.toLowerCase();
@@ -1539,7 +1550,6 @@
                 doRedo();
             }
         });
-        // =========================================================================
 
         let currentFontSize = 24;
         whiteboard.style.fontSize = currentFontSize + 'px';
@@ -1555,7 +1565,6 @@
         }
 
         document.getElementById('btnAPlus').addEventListener('click', () => {
-            // 有选中文字：只放大选中的部分；没有选中：调整全局字号
             if (resizeSelectedText(4)) return;
             currentFontSize = Math.min(80, currentFontSize + 2);
             applyFontSize();
@@ -1574,7 +1583,6 @@
             saveHistoryImmediate();
         });
 
-        // ===== 去除选中部分的拼音 / 翻译 / 下划线（辅助函数，供切换按钮调用） =====
         function removeSelectedElements(selector, restoreFn, emptyTip) {
             const selection = window.getSelection();
             if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
@@ -1628,17 +1636,13 @@
             clone.querySelectorAll('.py-top').forEach(e => e.remove());
             return clone.textContent;
         }
-        // ===== 去除功能辅助函数结束 =====
 
-        // ================= 拼音：使用标准 <ruby> 标签，拼音显示在汉字正上方 =================
-        // 把一段文字变成 DocumentFragment：汉字 → <ruby>字<rt>拼音</rt></ruby>，其他字符保持原样
         function buildPinyinFragment(text) {
             const frag = document.createDocumentFragment();
             const chars = Array.from(text);
             let pys = null;
             try {
                 if (typeof window.pinyinPro !== 'undefined') {
-                    // 整句取拼音，多音字更准确
                     const arr = window.pinyinPro.pinyin(text, { toneType: 'symbol', type: 'array' });
                     if (Array.isArray(arr) && arr.length === chars.length) pys = arr;
                 }
@@ -1666,7 +1670,6 @@
             return frag;
         }
 
-        // 取出选区（或一行）里涉及到的文本节点，以及每个节点被选中的起止位置
         function getRangeTextParts(range) {
             const root = range.commonAncestorContainer.nodeType === 3 ? range.commonAncestorContainer.parentNode : range.commonAncestorContainer;
             const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -1681,7 +1684,6 @@
             return parts;
         }
 
-        // 把文本节点按 [s, e) 切开，返回被选中的那一段
         function splitTextPart(p) {
             let t = p.node;
             if (p.e < t.nodeValue.length) t.splitText(p.e);
@@ -1689,7 +1691,6 @@
             return t;
         }
 
-        // 原地给范围内的汉字加拼音（保留原有的加粗、颜色、字号等格式）
         function convertRangeToPinyin(range) {
             const parts = getRangeTextParts(range).reverse();
             let count = 0;
@@ -1706,7 +1707,6 @@
             return count;
         }
 
-        // 先在选区末尾放一个临时标记，再加拼音，这样加完以后还能准确找到“选区结束的位置”
         function convertRangeToPinyinKeepEnd(range) {
             const endMark = document.createElement('span');
             endMark.setAttribute('data-end-mark', '1');
@@ -1717,7 +1717,6 @@
             return { count, endMark };
         }
 
-        // 取选区的纯文字（不含拼音 rt、不含已有翻译）
         function getSelectionPlainText(range) {
             const div = document.createElement('div');
             div.appendChild(range.cloneContents());
@@ -1744,7 +1743,6 @@
             setTimeout(saveHistoryImmediate, 50);
         }
 
-        // ================= 翻译相关 =================
         function getTargetLang() { return document.getElementById('targetLang').value; }
 
         function createTranslationBlock(lang) {
@@ -1781,7 +1779,6 @@
             }
         }
 
-        // 翻译是异步完成的：如果历史记录还停在“翻译中”那一步，就直接更新它，避免撤销时回到“翻译中...”
         function saveAfterAsync(snapBefore) {
             if (historyIndex >= 0 && historyStack[historyIndex] === snapBefore) {
                 historyStack[historyIndex] = whiteboard.innerHTML;
@@ -1818,7 +1815,6 @@
             setTimeout(saveHistoryImmediate, 50);
         }
 
-        // 选中文字 + Ctrl/⌘+Shift+Enter：一步完成拼音 + 翻译
         async function combinePinyinAndTranslate(range, selectedText) {
             const lang = getTargetLang();
             const plain = getSelectionPlainText(range) || selectedText;
@@ -1844,14 +1840,12 @@
             saveAfterAsync(snap);
         }
 
-        // ================= 没选中文字：对光标所在行自动加拼音 + 翻译 =================
         function isLineBreakNode(n) {
             if (n.nodeType !== 1) return false;
             if (n.tagName === 'BR') return true;
             return /^(block|flex|list-item|table|grid)$/.test(window.getComputedStyle(n).display);
         }
 
-        // 返回 true 表示已处理（需要阻止默认的回车换行），false 表示这一行不需要处理
         function handleEnterOnLine(caret) {
             const sc = caret.startContainer;
             const el0 = sc.nodeType === 3 ? sc.parentElement : sc;
@@ -1861,7 +1855,6 @@
             let container = el0.closest('p, div, li, h1, h2, h3, h4, h5, h6, blockquote');
             if (!container || !whiteboard.contains(container)) container = whiteboard;
 
-            // 找到光标所在这一“行”的边界（以 <br> 或块级元素为界）
             let prevStart, nextStart;
             if (sc === container) {
                 prevStart = container.childNodes[caret.startOffset - 1] || null;
@@ -1882,19 +1875,18 @@
             if (next) lineRange.setEndBefore(next); else lineRange.setEnd(container, container.childNodes.length);
 
             const lineText = lineRange.toString().replace(/\u200B/g, '').trim();
-            if (!/[\u4e00-\u9fa5]/.test(lineText)) return false;           // 没有汉字：正常换行
+            if (!/[\u4e00-\u9fa5]/.test(lineText)) return false;           
             const frag = lineRange.cloneContents();
-            if (frag.querySelector('ruby, table, .english-line, img, .resizable-img-wrapper')) return false; // 已处理过：正常换行
+            if (frag.querySelector('ruby, table, .english-line, img, .resizable-img-wrapper')) return false; 
 
             const lang = getTargetLang();
-            saveHistoryImmediate();       // 先保存加拼音之前的状态，方便撤销
+            saveHistoryImmediate();       
             convertRangeToPinyin(lineRange);
 
             const block = createTranslationBlock(lang);
             let caretNode, caretOffset;
             const wholeBlock = container !== whiteboard && !prev && !next && /^(P|DIV)$/.test(container.tagName);
             if (wholeBlock) {
-                // 这一行就是一个完整段落：翻译放在段落下面，再新开一个空段落给光标
                 const newLine = document.createElement(container.tagName === 'P' ? 'p' : 'div');
                 newLine.appendChild(document.createElement('br'));
                 container.after(block);
@@ -1923,8 +1915,6 @@
             return true;
         }
 
-        // ================= 只放大 / 缩小选中的文字 =================
-        // 返回 true 表示已对选中文字处理；false 表示没有有效选区
         function resizeSelectedText(delta) {
             const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
@@ -1941,14 +1931,12 @@
                 const el = p.node.parentElement;
                 if (!el) return;
 
-                // 带拼音的文字：整个 ruby 一起缩放，这样拼音会跟着一起变大/变小
                 const group = el.closest('ruby, .pinyin-inline-table');
                 if (group) {
                     if (!seen.has(group)) { seen.add(group); targets.push(group); }
                     return;
                 }
 
-                // 普通文字：只把选中的那一段包进 span，设置字号
                 const t = splitTextPart(p);
                 let span = t.parentElement;
                 if (!(span && span.dataset && span.dataset.fs === '1' && span.childNodes.length === 1)) {
@@ -1967,7 +1955,6 @@
                 el.style.fontSize = Math.min(200, Math.max(10, sizes[i] + delta)) + 'px';
             });
 
-            // 保持选中状态，方便连续点击 A+ / A-
             targets.reverse();
             const nr = document.createRange();
             nr.setStartBefore(targets[0]);
@@ -1980,7 +1967,6 @@
             return true;
         }
 
-        // ===== 三个切换按钮：拼音 / 核心词汇下划线 / 翻译 =====
         function selectionHasAny(selector) {
             const selection = window.getSelection();
             if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
@@ -2049,15 +2035,12 @@
                 translateSelection(range, selectedText);
             }
         });
-        // ===== 切换按钮结束 =====
 
-        // 点击工具栏按钮时，不让编辑区失去焦点/选区（保证 A+、A-、拼音等对选中文字生效）
         document.querySelectorAll('.toolbar-btn').forEach(btn => {
             btn.addEventListener('mousedown', e => e.preventDefault());
         });
         document.getElementById('btnToggleTranslate').addEventListener('mousedown', e => e.preventDefault());
 
-        // ======== 课堂测验 (全覆盖出题 + 题型双语注释 + 短文填空，去掉题型四前缀) ========
         document.getElementById('btnQuiz').addEventListener('click', async function() {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
@@ -2290,17 +2273,14 @@ ${sourceText}`;
             return `<div class="triple-line"><div class="head-zh">${headZh}</div><div class="py">${py}</div><div class="en">${en}</div></div>\n`;
         }
 
-        // 修改：点击生成全套试题时，弹出选择框
         document.getElementById('btnGenEx').addEventListener('click', function() {
             const isTeacher = confirm("请选择要生成的版本：\n\n点击【确定】生成 教师版 (含答案解析)\n点击【取消】生成 学生版 (无答案)");
             
-            // 使用 setTimeout 避免阻塞 UI 线程，同时触发真实的生成函数
             setTimeout(() => {
                 generateExamPaper(isTeacher);
             }, 100);
         });
 
-        // 独立的试卷生成函数，接收是否为教师版的参数
         async function generateExamPaper(isTeacher) {
             const apiKey = apiKeyInput.value.trim(); 
             let sourceText = whiteboard.innerText.trim();
@@ -2341,18 +2321,15 @@ ${sourceText}`;
                 currentMode = 'exam';
                 document.getElementById('modalTitle').innerText = isTeacher ? "📄 教师版测试题 (已准备)" : "📄 学生版测试题 (已准备)";
                 
-                // 分离试卷和答案
                 const answerSplitRegex = /##\s*参考答案.*/i;
                 const parts = exerciseMarkdown.split(answerSplitRegex);
                 
                 const studentPart = parts[0] || exerciseMarkdown;
                 const answerPart = parts.length > 1 ? `## 参考答案\n${parts[1]}` : '';
 
-                // 存储到全局供下载
                 window.__studentExMarkdown = studentPart;
                 window.__teacherExMarkdown = studentPart + '\n\n' + answerPart;
 
-                // 界面上展示根据用户选择决定的内容
                 const contentToShow = isTeacher ? window.__teacherExMarkdown : window.__studentExMarkdown;
                 document.getElementById('examContent').innerHTML = (typeof marked !== 'undefined') ? marked.parse(contentToShow) : contentToShow;
                 
@@ -2368,7 +2345,6 @@ ${sourceText}`;
             }
         }
 
-        // 统一导出 Word 逻辑
         function downloadWord(contentMarkdown, fileName) {
             if (!contentMarkdown) { alert('没有可下载的内容'); return; }
             
@@ -2406,12 +2382,10 @@ ${sourceText}`;
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
         }
 
-        // 下载笔记 (当前内容)
         document.getElementById('modalDownloadBtn').addEventListener('click', function() {
             if (currentMode === 'note') {
                 downloadWord(document.getElementById('examContent').innerHTML, '复习笔记');
             } else {
-                // 如果当前在试卷界面，默认下载当前预览的版本
                 const title = document.getElementById('modalTitle').innerText;
                 if (title.includes('教师版')) {
                     downloadWord(window.__teacherExMarkdown, '测试题_教师版');
@@ -2421,12 +2395,10 @@ ${sourceText}`;
             }
         });
 
-        // 下载学生版试卷
         document.getElementById('btnDownloadExStudent').addEventListener('click', function() {
             downloadWord(window.__studentExMarkdown, '测试题_学生版');
         });
 
-        // 下载教师版试卷
         document.getElementById('btnDownloadExTeacher').addEventListener('click', function() {
             downloadWord(window.__teacherExMarkdown, '测试题_教师版');
         });
@@ -2520,7 +2492,6 @@ ${sourceText}`;
         });
         observer.observe(whiteboard, { childList: true, subtree: true, characterData: true });
 
-        // ====== 字帖弹窗打开与关闭 ======
         document.getElementById('btnOpenWorksheet').addEventListener('click', function() {
             document.getElementById('worksheetModal').classList.remove('hidden');
             document.getElementById('worksheetModal').classList.add('flex');
@@ -2531,11 +2502,9 @@ ${sourceText}`;
             document.getElementById('worksheetModal').classList.remove('flex');
         };
 
-        // ====== 新增功能1：一键撤销所有拼音和翻译 ======
         document.getElementById('btnRemoveAllPinyinTrans').addEventListener('click', function() {
             const whiteboardEl = document.getElementById('whiteboardContent');
 
-            // 统计将被移除的元素数量
             const pinyinNodes = whiteboardEl.querySelectorAll('ruby, .pinyin-inline-table');
             const transNodes = whiteboardEl.querySelectorAll('.english-line');
 
@@ -2550,7 +2519,6 @@ ${sourceText}`;
 
             saveHistoryImmediate();
 
-            // 1) 移除所有拼音：把 <ruby>字<rt>py</rt></ruby> 还原为纯文字
             whiteboardEl.querySelectorAll('ruby').forEach(ruby => {
                 let txt = '';
                 ruby.childNodes.forEach(c => {
@@ -2560,7 +2528,6 @@ ${sourceText}`;
                 ruby.replaceWith(document.createTextNode(txt));
             });
 
-            // 2) 移除所有表格型拼音
             whiteboardEl.querySelectorAll('.pinyin-inline-table').forEach(tbl => {
                 const firstRow = tbl.querySelector('tr');
                 let txt = '';
@@ -2575,13 +2542,10 @@ ${sourceText}`;
                 tbl.replaceWith(document.createTextNode(txt));
             });
 
-            // 3) 移除所有翻译块
             whiteboardEl.querySelectorAll('.english-line').forEach(node => node.remove());
 
-            // 清理可能残留的空包裹容器（翻译时插入的 div）
             whiteboardEl.querySelectorAll('div').forEach(div => {
                 if (!div.textContent.trim() && div.querySelectorAll('img, table, ruby, .core-vocab').length === 0) {
-                    // 只清理翻译功能产生的空 div（无样式标记、无子元素内容的）
                     if (div.children.length === 0 || (div.children.length === 1 && div.children[0].tagName === 'BR')) {
                         div.remove();
                     }
@@ -2593,7 +2557,6 @@ ${sourceText}`;
             alert('✅ 已清除白板上所有拼音和翻译标注（文字内容已保留，可通过“撤销”恢复）。');
         });
 
-        // ====== 新增功能2：一键挖空生成试题 ======
         document.getElementById('btnClozeTest').addEventListener('click', function() {
             const originalNodes = whiteboard.querySelectorAll('.core-vocab');
             if (originalNodes.length === 0) {
@@ -2601,16 +2564,13 @@ ${sourceText}`;
                 return;
             }
 
-            // 克隆当前的完整 HTML 以避免破坏原文章
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = whiteboard.innerHTML;
             
-            // 提取克隆后的标记词汇
             const clonedVocabs = tempDiv.querySelectorAll('.core-vocab');
             const wordBank = new Set();
             let blankIndex = 1;
 
-            // 将标记词替换为带有题号的下划线
             clonedVocabs.forEach(node => {
                 const text = node.textContent.trim();
                 if (text) {
@@ -2623,11 +2583,9 @@ ${sourceText}`;
                 }
             });
 
-            // 打乱词库
             const wordBankArray = Array.from(wordBank).sort(() => Math.random() - 0.5);
             const wordBankHtml = wordBankArray.map((w, i) => `${String.fromCharCode(65 + i)}. ${w}`).join(' &nbsp;&nbsp;&nbsp; ');
 
-            // 构建生成的内容
             let finalHtml = `<hr style="border: 1px dashed #cbd5e1; margin: 40px 0;"><br>`;
             finalHtml += `<div class="quiz-board">`;
             finalHtml += `<h2>✂️ 短文挖空练习 (Cloze Test)</h2>`;
@@ -2637,10 +2595,9 @@ ${sourceText}`;
             finalHtml += `<div style="line-height: 2; padding: 10px; font-size: 1.1em;">${tempDiv.innerHTML}</div>`;
             finalHtml += `</div>`;
 
-            // 追加到白板底部
             whiteboard.innerHTML += finalHtml;
             scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-            setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 250); // 稍微加大延迟，确保 DOM 渲染完毕
+            setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 250); 
         });
     }
 

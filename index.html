@@ -288,6 +288,9 @@
     .toolbar-btn:hover { background-color: #e2e8f0; }
     .btn-draw-active { background-color: #3b82f6 !important; color: white !important; border-color: #2563eb !important; }
     #drawToolbar { display: none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: white; padding: 8px 16px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 100; align-items: center; gap: 12px; border: 1px solid #e2e8f0; flex-wrap: wrap; }
+    .inline-flex { display: inline-flex !important; }
+    .font-color-btn { display: inline-block; width: 18px; height: 18px; min-width: 18px; min-height: 18px; border-radius: 50%; cursor: pointer; border: 1.5px solid rgba(0,0,0,0.15); padding: 0; flex-shrink: 0; transition: transform 0.15s; }
+    .font-color-btn:hover { transform: scale(1.2); border-color: #334155; }
     .color-btn { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
     .color-btn.active { border-color: #334155; transform: scale(1.15); }
     .color-btn:hover { transform: scale(1.15); }
@@ -385,7 +388,17 @@
                 <button id="btnAMinus" class="toolbar-btn font-bold">A-</button>
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnBold" class="toolbar-btn font-bold" style="font-family: serif;">B</button>
-                <button id="btnRed" class="toolbar-btn text-red-500 font-bold">A</button>
+                <div class="inline-flex items-center gap-1 bg-slate-100 border border-slate-300 rounded-lg px-2 py-1" title="字体颜色">
+                    <span class="text-xs text-slate-500 font-bold mr-1">A</span>
+                    <button type="button" class="font-color-btn" style="background-color: #ec4899;" data-color="#ec4899" title="粉色"></button>
+                    <button type="button" class="font-color-btn" style="background-color: #f97316;" data-color="#f97316" title="橙色"></button>
+                    <button type="button" class="font-color-btn" style="background-color: #ef4444;" data-color="#ef4444" title="红色"></button>
+                    <button type="button" class="font-color-btn" style="background-color: #16a34a;" data-color="#16a34a" title="绿色"></button>
+                    <button type="button" class="font-color-btn" style="background-color: #06b6d4;" data-color="#06b6d4" title="青色"></button>
+                    <button type="button" class="font-color-btn" style="background-color: #2563eb;" data-color="#2563eb" title="蓝色"></button>
+                    <button type="button" class="font-color-btn" style="background-color: #9333ea;" data-color="#9333ea" title="紫色"></button>
+                    <button type="button" id="btnClearFontColor" class="text-xs text-slate-600 px-1 font-bold cursor-pointer" style="margin-left: 2px;" title="去掉选中文字的字体颜色">🚫去色</button>
+                </div>
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
                 <button id="btnTogglePinyin" class="toolbar-btn bg-blue-100 text-blue-700 border-blue-300 font-bold" title="选中文字：无拼音则添加，有拼音则去除">✨ 拼音</button>
@@ -1647,8 +1660,54 @@
             document.execCommand('bold', false, null); 
             saveHistoryImmediate();
         });
-        document.getElementById('btnRed').addEventListener('click', () => { 
-            document.execCommand('foreColor', false, '#ef4444'); 
+        function applyTextColor(color) {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+                alert('请先用鼠标选中需要设置颜色的文字！');
+                return;
+            }
+            document.execCommand('styleWithCSS', false, true);
+            document.execCommand('foreColor', false, color);
+            saveHistoryImmediate();
+        }
+
+        document.querySelectorAll('.font-color-btn').forEach(btn => {
+            btn.addEventListener('mousedown', e => e.preventDefault());
+            btn.addEventListener('click', function() {
+                applyTextColor(this.dataset.color);
+            });
+        });
+
+        const btnClearFontColor = document.getElementById('btnClearFontColor');
+        btnClearFontColor.addEventListener('mousedown', e => e.preventDefault());
+        btnClearFontColor.addEventListener('click', function() {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+                alert('请先用鼠标选中需要去掉颜色的文字！');
+                return;
+            }
+            const range = sel.getRangeAt(0);
+            if (!whiteboard.contains(range.commonAncestorContainer)) return;
+
+            saveHistoryImmediate();
+            // 1. 先用默认颜色覆盖当前选区，拆分跨标签选区
+            document.execCommand('styleWithCSS', false, true);
+            document.execCommand('foreColor', false, '#334155');
+
+            // 2. 清理选区内 span / font 标签上的内联 color 样式，恢复继承白板默认字色（不动拼音 rt 的蓝色）
+            const updatedSel = window.getSelection();
+            if (updatedSel && updatedSel.rangeCount > 0) {
+                const updatedRange = updatedSel.getRangeAt(0);
+                whiteboard.querySelectorAll('span, font').forEach(el => {
+                    if (el.closest('rt, .py-top, .english-line')) return;
+                    let hit = false;
+                    try { hit = updatedRange.intersectsNode(el); } catch (e) {}
+                    if (hit) {
+                        if (el.style && el.style.color) el.style.color = '';
+                        if (el.hasAttribute('color')) el.removeAttribute('color');
+                    }
+                });
+            }
             saveHistoryImmediate();
         });
 

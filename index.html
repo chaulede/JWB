@@ -1930,14 +1930,60 @@
             container.appendChild(block);
             range.deleteContents();
             range.insertNode(container);
+            const nextLine = document.createElement('p');
+            nextLine.appendChild(document.createElement('br'));
+            container.after(nextLine);
             const newRange = document.createRange();
-            newRange.setStartAfter(container);
+            newRange.setStart(nextLine, 0);
             newRange.collapse(true);
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(newRange);
             setTimeout(saveHistoryImmediate, 50);
         }
+
+        // 回车：光标在译文块（.english-line）中按普通回车时，跳出译文块新建普通空行，避免新行继承译文样式
+        whiteboard.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.keyCode === 229) return;
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            const range = sel.getRangeAt(0);
+            const sc = range.startContainer;
+            const el = sc.nodeType === 3 ? sc.parentElement : sc;
+            const engBlock = el && el.closest('.english-line');
+            if (!engBlock || !whiteboard.contains(engBlock)) return;
+
+            e.preventDefault();
+            if (!range.isCollapsed) range.deleteContents();
+
+            // 如果不是在译文末尾按回车，把光标后面的译文内容拆分到新的译文块中
+            const afterRange = document.createRange();
+            afterRange.setStart(range.startContainer, range.startOffset);
+            afterRange.setEnd(engBlock, engBlock.childNodes.length);
+            const trailingFrag = afterRange.extractContents();
+            if (trailingFrag.textContent.replace(/\u200B/g, '').trim()) {
+                const cloneBlock = engBlock.cloneNode(false);
+                cloneBlock.appendChild(trailingFrag);
+                engBlock.after(cloneBlock);
+            }
+
+            // 创建干净的普通空行，脱离 .english-line 及其外层翻译容器
+            const newPara = document.createElement('p');
+            newPara.appendChild(document.createElement('br'));
+
+            const outerWrapper = engBlock.parentElement && engBlock.parentElement !== whiteboard && engBlock.parentElement.tagName === 'DIV' && engBlock.parentElement.querySelector(':scope > .english-line') === engBlock && engBlock.nextElementSibling === null
+                ? engBlock.parentElement
+                : engBlock;
+
+            outerWrapper.after(newPara);
+
+            const nr = document.createRange();
+            nr.setStart(newPara, 0);
+            nr.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(nr);
+            saveHistoryImmediate();
+        });
 
         // 退格：光标紧跟在行内译文之后时，一次删掉整个译文标注
         whiteboard.addEventListener('keydown', function(e) {

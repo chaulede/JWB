@@ -332,6 +332,52 @@
     .quiz-board h3 { font-size: 1.1em; font-weight: bold; color: #b45309; margin-top: 20px; margin-bottom: 10px; }
     .quiz-board p { margin-bottom: 12px; line-height: 1.8; }
     
+    /* ====== 新增：看拼音写汉字 / 补全汉字 试题样式 ====== */
+    .wp-exam { margin-top: 10px; }
+    .wp-exam h2 { font-size: 1.3em; font-weight: bold; color: #1e3a8a; border-bottom: 2px dashed #93c5fd; padding-bottom: 10px; margin-bottom: 12px; }
+    .wp-tip { font-family: Arial, sans-serif; font-size: 0.6em; color: #64748b; margin-bottom: 18px; line-height: 1.4; }
+
+    /* 看拼音写汉字：每个字上方有拼音，要写的词是空格，旁边有英文注释 */
+    .wp-item { display: flex; align-items: flex-end; gap: 0.6em; margin: 0.9em 0; }
+    .wp-no { min-width: 2.2em; font-family: 'Times New Roman', serif; font-weight: bold; }
+    .wp-line { display: flex; flex-wrap: wrap; align-items: flex-end; }
+    .wp-cell { display: inline-flex; flex-direction: column; align-items: center; margin: 0 1px; }
+    .wp-py { font-family: Arial, sans-serif; font-size: 0.5em; color: #1d4ed8; font-weight: bold; line-height: 1.2; min-height: 1.3em; white-space: nowrap; padding: 0 2px; }
+    .wp-zi { font-size: 1em; line-height: 1.4; min-width: 1em; text-align: center; }
+    .wp-blank .wp-zi { width: 1.5em; height: 1.5em; border: 1.5px solid #334155; background: linear-gradient(#cbd5e1,#cbd5e1) center/1px 100% no-repeat, linear-gradient(#cbd5e1,#cbd5e1) center/100% 1px no-repeat; }
+    .wp-en { font-family: Arial, sans-serif; font-size: 0.5em; color: #475569; font-style: italic; margin: 0 6px 0.4em 2px; align-self: flex-end; }
+
+    /* 补全汉字：选项行、田字格、答案框 */
+    .wp-opts { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.6em; font-family: 'Times New Roman', serif; margin: 0.5em 0 1.2em; }
+    .wp-opts b { margin-right: 0.3em; }
+    .wp-ex-label { font-weight: bold; margin: 0.8em 0 0.2em; }
+    .wp-gitem { display: flex; align-items: center; justify-content: space-between; max-width: 820px; margin: 1.1em 0; }
+    .wp-gleft { display: flex; align-items: center; gap: 0.8em; }
+    .wp-gcol { display: inline-flex; flex-direction: column; align-items: center; }
+    .wp-ggrp { display: inline-flex; }
+    .wp-gcell { width: 2.6em; display: flex; flex-direction: column; margin-left: -1.5px; }
+    .wp-gcell:first-child { margin-left: 0; }
+    .wp-gpy { height: 1.2em; border: 1.5px solid #334155; border-bottom: 1px dashed #64748b; display: flex; align-items: center; justify-content: center; }
+    .wp-gpy span { font-family: Arial, sans-serif; font-size: 0.55em; color: #1e293b; white-space: nowrap; }
+    .wp-gch { position: relative; width: 100%; height: 2.6em; border: 1.5px solid #334155; border-top: none; display: flex; align-items: center; justify-content: center; background: linear-gradient(#cbd5e1,#cbd5e1) center/1px 100% no-repeat, linear-gradient(#cbd5e1,#cbd5e1) center/100% 1px no-repeat; }
+    .wp-gg { font-size: 1.9em; line-height: 1; }
+    .wp-part { position: absolute; display: flex; align-items: center; justify-content: center; }
+    .wp-part.p-natural { inset: 0; }
+    .wp-part.p-left { left: 0; top: 0; width: 50%; height: 100%; }
+    .wp-part.p-left .wp-gg { transform: scaleX(0.5); }
+    .wp-part.p-right { right: 0; top: 0; width: 50%; height: 100%; }
+    .wp-part.p-right .wp-gg { transform: scaleX(0.5); }
+    .wp-part.p-top { left: 0; top: 0; width: 100%; height: 50%; }
+    .wp-part.p-top .wp-gg { transform: scaleY(0.5); }
+    .wp-part.p-bottom { left: 0; bottom: 0; width: 100%; height: 50%; }
+    .wp-part.p-bottom .wp-gg { transform: scaleY(0.5); }
+    .wp-gen { width: 0; min-width: 100%; font-family: Arial, sans-serif; font-size: 0.55em; color: #475569; font-style: italic; text-align: center; margin-top: 0.4em; line-height: 1.3; }
+    .wp-arrow { display: inline-block; position: relative; width: 4.5em; border-top: 2px dashed #222; margin: 0 1em; }
+    .wp-arrow::after { content: ''; position: absolute; right: -2px; top: -6px; border-left: 9px solid #222; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+    .wp-abox { width: 1.9em; height: 1.9em; border: 1.5px solid #334155; display: flex; align-items: center; justify-content: center; font-family: 'Times New Roman', serif; font-size: 1em; flex-shrink: 0; }
+    .wp-answer-toggle { display: inline-block; font-family: Arial, sans-serif; font-size: 0.55em; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 2px 10px; cursor: pointer; margin-top: 10px; user-select: none; }
+    .wp-answer { font-family: Arial, sans-serif; font-size: 0.6em; color: #b45309; margin-top: 6px; line-height: 1.8; }
+
     /* 字帖 iframe 弹窗专用样式 */
     #worksheetModal iframe {
         width: 100%;
@@ -411,6 +457,8 @@
                 <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
                 <!-- 新增：根据标记直接挖空生成试题 -->
                 <button id="btnClozeTest" class="toolbar-btn bg-emerald-100 text-emerald-700 border-emerald-300 font-bold">✂️ 挖空生成试题</button>
+                <button id="btnS2T" class="toolbar-btn bg-teal-50 text-teal-700 border-teal-200 font-bold" title="選中文字則只轉選中部分；未選中則轉換整個白板">🔁 簡→繁</button>
+                <button id="btnT2S" class="toolbar-btn bg-teal-50 text-teal-700 border-teal-200 font-bold" title="選中文字則只轉選中部分；未選中則轉換整個白板">🔁 繁→簡</button>
                 
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
@@ -517,6 +565,14 @@
                 <label class="block text-xs font-medium text-slate-700 mb-1">🔑 API Key</label>
                 <input type="password" id="apiKey" placeholder="sk-..." class="w-full border border-slate-300 rounded-lg p-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white">
             </div>
+        </div>
+
+        <div class="p-3 rounded-lg space-y-2" style="background:#fffbeb; border:1px solid #fde68a;">
+            <label class="block text-xs font-bold mb-1" style="color:#92400e;">🧪 汉字专项试题 (展示在白板)</label>
+            <textarea id="examVocabInput" rows="2" placeholder="指定词汇（可选）：用逗号、顿号或换行分隔。留空则用白板上标注的核心词汇，再没有则由 AI 从白板课文里挑选" class="w-full rounded-lg text-xs bg-white" style="border:1px solid #fcd34d; padding:6px; resize:vertical;"></textarea>
+            <button id="btnWritePinyin" class="w-full bg-amber-500 text-white py-2 rounded-lg font-bold text-sm cursor-pointer" style="border:1px solid #d97706;">✍️ 看拼音写汉字</button>
+            <button id="btnRadicalExam" class="w-full bg-amber-500 text-white py-2 rounded-lg font-bold text-sm cursor-pointer" style="border:1px solid #d97706;">🧩 补全汉字（选部件）</button>
+            <button id="btnRadicalExamTC" class="w-full bg-amber-500 text-white py-2 rounded-lg font-bold text-sm cursor-pointer" style="border:1px solid #d97706;">🧩 補全漢字（繁體）</button>
         </div>
 
         <div class="flex flex-col gap-2.5 mt-auto pt-2">
@@ -2357,7 +2413,7 @@ ${sourceText}`;
             } finally { 
                 btn.innerHTML = originalText; 
                 btn.disabled = false; 
-                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.add('hidden'); 
             }
         });
 
@@ -2503,7 +2559,7 @@ ${sourceText}`;
             finally { 
                 btn.innerHTML = originalText; 
                 btn.disabled = false; 
-                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.add('hidden'); 
             }
         });
 
@@ -2587,7 +2643,7 @@ ${sourceText}`;
             finally { 
                 btn.innerHTML = originalText; 
                 btn.disabled = false; 
-                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.add('hidden'); 
             }
         }
 
@@ -2845,6 +2901,387 @@ ${sourceText}`;
             scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
             setTimeout(() => { saveHistoryImmediate(); resizeCanvas(); }, 250);
         });
+
+        // ================= 新增：看拼音写汉字 / 补全汉字 试题 =================
+        const EXAM_START_NO = 1; // 补全汉字题的起始题号（想从 51 开始就改成 51）
+
+        // 取白板的干净课文：去掉拼音、翻译、旧试题
+        function getCleanBoardText() {
+            const clone = whiteboard.cloneNode(true);
+            clone.querySelectorAll('rt, .py-top, .english-line, .wp-exam, .quiz-board').forEach(n => n.remove());
+            clone.querySelectorAll('br, p, div, li, h1, h2, h3, tr').forEach(el => el.after(document.createTextNode('\n')));
+            return clone.textContent.replace(/\u200B/g, '').replace(/\n{3,}/g, '\n\n').trim();
+        }
+
+        // 词汇来源：指定词汇 > 白板核心词汇 > 交给 AI 从课文里挑
+        function getExamVocabList() {
+            const custom = (document.getElementById('examVocabInput').value || '')
+                .split(/[\s,，、;；\n]+/).map(s => s.trim()).filter(Boolean);
+            if (custom.length) return Array.from(new Set(custom));
+            return getCoreVocabularies();
+        }
+
+        function parseAIJson(text) {
+            const t = String(text).replace(/```json|```/gi, '').trim();
+            const s = t.indexOf('{'), e = t.lastIndexOf('}');
+            if (s === -1 || e === -1) throw new Error('AI 没有返回有效数据，请重试。');
+            return JSON.parse(t.slice(s, e + 1));
+        }
+
+        // 本地生成拼音（与文字一一对应，非汉字返回空串）
+        function getPinyinArray(text) {
+            const chars = Array.from(text);
+            let arr = null;
+            try {
+                if (typeof window.pinyinPro !== 'undefined') {
+                    const r = window.pinyinPro.pinyin(text, { toneType: 'symbol', type: 'array' });
+                    if (Array.isArray(r) && r.length === chars.length) arr = r;
+                }
+            } catch (e) { arr = null; }
+            return chars.map((ch, i) => {
+                if (!/[\u4e00-\u9fa5]/.test(ch)) return '';
+                if (arr) return arr[i];
+                return (typeof window.pinyinPro !== 'undefined') ? window.pinyinPro.pinyin(ch, { toneType: 'symbol' }) : '';
+            });
+        }
+
+        function appendExamToBoard(innerHtml) {
+            let html = '';
+            if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') {
+                html += `<hr style="border: 1px dashed #cbd5e1; margin: 40px 0;"><br>`;
+            }
+            html += innerHtml;
+            whiteboard.innerHTML += html;
+            setTimeout(() => {
+                const all = whiteboard.querySelectorAll('.wp-exam');
+                if (all.length) all[all.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                saveHistoryImmediate();
+                resizeCanvas();
+            }, 50);
+        }
+
+        async function withExamLoading(btn, msg, task) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<span class="loader"></span> 正在出题...`;
+            btn.disabled = true;
+            loadingOverlay.classList.remove('hidden');
+            loadingText.innerText = msg;
+            try { await task(); }
+            catch (e) { alert('生成失败：' + e.message); }
+            finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                loadingOverlay.classList.add('hidden');
+            }
+        }
+
+        const ANSWER_TOGGLE = `<div class="wp-answer-toggle" contenteditable="false" onclick="var n=this.nextElementSibling;n.style.display=(n.style.display==='none'?'block':'none');">👁 显示 / 隐藏答案</div>`;
+
+        // ---------- 试题 1：看拼音写汉字 ----------
+        function buildWritePinyinHtml(items) {
+            let html = `<div class="wp-exam">`;
+            html += `<h2>✍️ 看拼音，写汉字 (Write the Characters)</h2>`;
+            html += `<div class="wp-tip">Write the Chinese characters for the pinyin in the boxes. The English in brackets tells you the meaning.</div>`;
+            const answers = [];
+
+            items.forEach((it, idx) => {
+                const chars = it.sentence.split('');
+                const py = getPinyinArray(it.sentence);
+                const flags = new Array(chars.length).fill(false);
+                const enAfter = {};
+                let cursor = 0;
+                const ans = [];
+                it.blanks.forEach(b => {
+                    let p = it.sentence.indexOf(b.text, cursor);
+                    if (p === -1) p = it.sentence.indexOf(b.text);
+                    if (p === -1) return;
+                    for (let k = p; k < p + b.text.length; k++) flags[k] = true;
+                    enAfter[p + b.text.length - 1] = b.en;
+                    cursor = p + b.text.length;
+                    ans.push(b.text);
+                });
+                answers.push(`${idx + 1}. ${ans.join('、')}`);
+
+                let line = '';
+                chars.forEach((ch, i) => {
+                    if (flags[i]) {
+                        line += `<span class="wp-cell wp-blank"><span class="wp-py">${escapeHtml(py[i] || '')}</span><span class="wp-zi">&nbsp;</span></span>`;
+                    } else {
+                        line += `<span class="wp-cell"><span class="wp-py">${escapeHtml(py[i] || '')}</span><span class="wp-zi">${escapeHtml(ch)}</span></span>`;
+                    }
+                    if (enAfter[i] !== undefined) {
+                        line += `<span class="wp-en">(${escapeHtml(enAfter[i])})</span>`;
+                    }
+                });
+                html += `<div class="wp-item"><span class="wp-no">${idx + 1}.</span><div class="wp-line">${line}</div></div>`;
+            });
+
+            html += ANSWER_TOGGLE;
+            html += `<div class="wp-answer" style="display:none;">参考答案：<br>${answers.map(escapeHtml).join('<br>')}</div>`;
+            html += `</div>`;
+            return html;
+        }
+
+        document.getElementById('btnWritePinyin').addEventListener('click', function() {
+            const apiKey = apiKeyInput.value.trim();
+            const corpus = getCleanBoardText().slice(0, 6000);
+            const list = getExamVocabList().slice(0, 12);
+            if (!corpus && list.length === 0) { alert('白板为空，也没有指定词汇！请先在白板输入课文，或在“指定词汇”框里填写词汇。'); return; }
+            if (!apiKey) { alert('必须填入 API Key！'); return; }
+
+            const vocabPart = list.length
+                ? `【本次考查词汇】${list.join('、')}\n每个词汇出一道题，共 ${list.length} 道。`
+                : `【本次考查词汇】用户没有指定，请从课文语料中挑选 6~8 个最重要的词语，每个词语出一道题。`;
+
+            const prompt = `你是一位国际中文教师，要出一份“看拼音，写汉字”的练习题：句子中的某个词语被挖空，学生根据拼音写出汉字。
+${vocabPart}
+
+【课文语料】
+${corpus || '（无课文，请根据词汇编写简单句子）'}
+
+【出题规则】
+1. 优先从【课文语料】中选取包含该词汇的原句（句子太长时截取完整的短句）；语料里没有该词时，写一个符合本课难度、简短自然的句子。
+2. blanks 里的 text 必须是 sentence 中原样出现的连续汉字，也就是要学生默写的词语。每题通常 1 个空。
+3. en 是该词语简短的英文释义（2~4 个词）。
+4. sentence 里不要放拼音，也不要放英文。
+5. 只输出 JSON，不要任何解释，格式如下：
+{"items":[{"sentence":"我喜欢喝茶。","blanks":[{"text":"喜欢","en":"to like"}]}]}`;
+
+            withExamLoading(this, 'AI 正在生成“看拼音写汉字”试题...', async () => {
+                const raw = await callAI(prompt, '你是一个专业的国际中文命题专家。只输出 JSON。', null, false);
+                const data = parseAIJson(raw);
+                const items = (data.items || []).map(it => {
+                    const sentence = String((it && it.sentence) || '').trim();
+                    const blanks = (Array.isArray(it && it.blanks) ? it.blanks : [])
+                        .map(b => ({ text: String((b && b.text) || '').trim(), en: String((b && b.en) || '').trim() }))
+                        .filter(b => b.text && sentence.includes(b.text));
+                    return { sentence, blanks };
+                }).filter(it => it.sentence && it.blanks.length);
+                if (!items.length) throw new Error('AI 返回的题目格式不对，请重试一次。');
+                appendExamToBoard(buildWritePinyinHtml(items));
+            });
+        });
+
+        // ---------- 试题 2：补全汉字（选部件） ----------
+        function buildGridGroup(word, py, charIdx, visible, position, complete) {
+            const chars = Array.from(word);
+            let h = '<span class="wp-ggrp">';
+            chars.forEach((ch, i) => {
+                let inner;
+                if (i === charIdx && !complete) {
+                    const pos = ['left', 'right', 'top', 'bottom', 'natural'].includes(position) ? position : 'natural';
+                    inner = `<span class="wp-part p-${pos}"><span class="wp-gg">${escapeHtml(visible)}</span></span>`;
+                } else {
+                    inner = `<span class="wp-gg">${escapeHtml(ch)}</span>`;
+                }
+                h += `<span class="wp-gcell"><span class="wp-gpy"><span>${escapeHtml(py[i] || '')}</span></span><span class="wp-gch">${inner}</span></span>`;
+            });
+            return h + '</span>';
+        }
+
+        function normRadicalItem(o) {
+            if (!o) return null;
+            const word = String(o.word || '').trim();
+            const ch = String(o.char || '').trim();
+            const visible = String(o.visible || '').trim();
+            const missing = String(o.missing || '').trim();
+            if (!word || !ch || !visible || !missing) return null;
+            const idx = Array.from(word).indexOf(Array.from(ch)[0]);
+            if (idx < 0) return null;
+            return { word, idx, visible, missing, position: String(o.position || 'natural').trim(), en: String(o.en || '').trim() };
+        }
+
+        // ================= 繁簡轉換（OpenCC-js，按需載入） =================
+        let openccPromise = null;
+        function ensureOpenCC() {
+            if (window.OpenCC) return Promise.resolve(true);
+            if (openccPromise) return openccPromise;
+            const urls = [
+                'https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js',
+                'https://unpkg.com/opencc-js@1.0.5/dist/umd/full.js'
+            ];
+            openccPromise = (async () => {
+                for (const u of urls) {
+                    const ok = await new Promise(res => {
+                        const s = document.createElement('script');
+                        s.src = u;
+                        s.onload = () => res(!!window.OpenCC);
+                        s.onerror = () => res(false);
+                        document.head.appendChild(s);
+                    });
+                    if (ok) return true;
+                }
+                return false;
+            })();
+            openccPromise.then(ok => { if (!ok) openccPromise = null; });
+            return openccPromise;
+        }
+
+        const converterCache = {};
+        function getConverter(mode) {
+            if (!converterCache[mode]) {
+                converterCache[mode] = (mode === 's2t')
+                    ? window.OpenCC.Converter({ from: 'cn', to: 'tw' })
+                    : window.OpenCC.Converter({ from: 'tw', to: 'cn' });
+            }
+            return converterCache[mode];
+        }
+
+        async function convertBoard(mode) {
+            // 先記下當前選區（載入組件是異步的）
+            let range = null;
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount && !sel.isCollapsed) {
+                const r = sel.getRangeAt(0);
+                if (whiteboard.contains(r.commonAncestorContainer)) range = r.cloneRange();
+            }
+            if (!range && !confirm('未選中文字，將轉換整個白板的內容。\n（拼音、圖片、格式不受影響，可通過「撤銷」恢復）\n\n是否繼續？')) return;
+
+            const ok = await ensureOpenCC();
+            if (!ok) { alert('繁簡轉換組件載入失敗，請檢查網絡（需能訪問 cdn.jsdelivr.net 或 unpkg.com）後重試。'); return; }
+            const conv = getConverter(mode);
+
+            saveHistoryImmediate();
+            let changed = 0;
+
+            if (range) {
+                getRangeTextParts(range).forEach(p => {
+                    const el = p.node.parentElement;
+                    if (!el || el.closest('rt, .py-top')) return;
+                    const v = p.node.nodeValue;
+                    const nv = v.slice(0, p.s) + conv(v.slice(p.s, p.e)) + v.slice(p.e);
+                    if (nv !== v) { p.node.nodeValue = nv; changed++; }
+                });
+            } else {
+                const walker = document.createTreeWalker(whiteboard, NodeFilter.SHOW_TEXT);
+                const nodes = [];
+                let n;
+                while ((n = walker.nextNode())) {
+                    const el = n.parentElement;
+                    if (el && el.closest('rt, .py-top')) continue;
+                    nodes.push(n);
+                }
+                nodes.forEach(t => {
+                    const v = t.nodeValue;
+                    const nv = conv(v);
+                    if (nv !== v) { t.nodeValue = nv; changed++; }
+                });
+            }
+
+            saveHistoryImmediate();
+            setTimeout(resizeCanvas, 100);
+            if (!changed) alert(mode === 's2t' ? '沒有需要轉換的簡體字。' : '沒有需要轉換的繁體字。');
+        }
+
+        document.getElementById('btnS2T').addEventListener('click', () => convertBoard('s2t'));
+        document.getElementById('btnT2S').addEventListener('click', () => convertBoard('t2s'));
+
+        // ================= 補全漢字（簡體 / 繁體 共用） =================
+        function runRadicalExam(btn, trad) {
+            const apiKey = apiKeyInput.value.trim();
+            let corpus = getCleanBoardText().slice(0, 6000);
+            let list = getExamVocabList().slice(0, 8);
+            if (!corpus && list.length === 0) { alert('白板為空，也沒有指定詞彙！請先在白板輸入課文，或在「指定詞彙」框裡填寫詞彙。'); return; }
+            if (!apiKey) { alert('必須填入 API Key！'); return; }
+
+            withExamLoading(btn, trad ? 'AI 正在生成「補全漢字（繁體）」試題...' : 'AI 正在生成「补全汉字」试题...', async () => {
+                let cv = null;
+                if (trad) {
+                    const ok = await ensureOpenCC();
+                    if (ok) {
+                        cv = getConverter('s2t');
+                        corpus = cv(corpus);
+                        list = list.map(w => cv(w));
+                    }
+                }
+
+                const vocabPart = list.length
+                    ? `【本次考查詞彙】${list.join('、')}\n每個詞彙出一道題。某個詞裡確實沒有合適可拆的漢字時可以跳過。`
+                    : `【本次考查詞彙】用戶沒有指定，請從課文語料中挑選 5~6 個詞語，每個詞語出一道題。`;
+
+                const tradRule = trad
+                    ? `\n【繁體要求】所有漢字（word、char、visible、missing、distractors）必須使用繁體字，部件也要用繁體寫法，不要出現簡體字。例如：見、門、馬、貝、車、言（不要寫 见、门、马、贝、车、讠）。繁體拆字示例：們=亻+門；現=王+見；請=言+青；時=日+寺；媽=女+馬；讀=言+賣；校=木+交；什=亻+十。\n`
+                    : '';
+
+                const exampleJson = trad
+                    ? `{"example":{"word":"什麼","char":"什","visible":"亻","missing":"十","position":"natural","en":"what"},"items":[{"word":"男生","char":"男","visible":"力","missing":"田","position":"bottom","en":"boy; male student"},{"word":"現在","char":"現","visible":"王","missing":"見","position":"left","en":"now"}],"distractors":["且","日"]}`
+                    : `{"example":{"word":"什么","char":"什","visible":"亻","missing":"十","position":"natural","en":"what"},"items":[{"word":"男生","char":"男","visible":"力","missing":"田","position":"bottom","en":"boy; male student"}],"distractors":["且","日"]}`;
+
+                const prompt = `你是一位國際中文教師，要出一份 HSK 風格的「補全漢字」題：每題給出一個詞語，其中一個漢字只顯示一部分（偏旁或部件），學生從選項裡選出缺失的部分，把字補完整。${trad ? '本套題目全部使用【繁體字】。' : ''}
+${vocabPart}
+${tradRule}
+【課文語料】
+${corpus || '（無課文）'}
+
+【出題規則】
+1. 每題選這個詞裡「一個」可以拆成兩個部分的漢字。例如：什=亻+十；男=田+力；歲=山+夕；漢=氵+又；現=王+見。
+2. char：被拆的那個漢字。
+3. visible：題目中保留顯示的那一部分，必須是一個能用字體顯示的漢字或偏旁（如 亻 氵 王 山 力 言）。
+4. missing：缺失、需要學生選擇的那一部分，必須是獨立、常見的部件或漢字（如 十 田 夕 又 見 且）。visible 與 missing 組合起來必須真正構成 char，不能錯。
+5. position：visible 在這個漢字方格裡的位置，只能是下面之一：
+   natural = visible 是 亻 氵 扌 忄 礻 衤 刂 阝 這類本身就偏向一側的偏旁，原樣顯示
+   left / right = visible 在左半邊 / 右半邊
+   top / bottom = visible 在上半部分 / 下半部分
+6. en：整個詞語的簡短英文釋義。
+7. 另外單獨給一道最簡單的示範題 example（如 什麼）。
+8. distractors：再給 2~3 個干擾部件，要常見、容易混淆，且不能和 visible 組成題中漢字。
+9. 只輸出 JSON，不要任何解釋，格式如下：
+${exampleJson}`;
+
+                const raw = await callAI(prompt, '你是一個專業的國際中文命題專家。只輸出 JSON。', null, false);
+                const data = parseAIJson(raw);
+
+                // 繁體模式下，對 AI 返回的字段再保險轉換一次
+                const fix = o => {
+                    if (!o || !cv) return o;
+                    const c = Object.assign({}, o);
+                    ['word', 'char', 'visible', 'missing'].forEach(k => { if (c[k]) c[k] = cv(String(c[k])); });
+                    return c;
+                };
+                const ex = normRadicalItem(fix(data.example));
+                const items = (data.items || []).map(fix).map(normRadicalItem).filter(Boolean);
+                if (!items.length) throw new Error('AI 返回的題目格式不對，請重試一次。');
+
+                const missingSet = [];
+                [ex].concat(items).filter(Boolean).forEach(o => { if (!missingSet.includes(o.missing)) missingSet.push(o.missing); });
+                const extras = Array.from(new Set((Array.isArray(data.distractors) ? data.distractors : [])
+                    .map(s => cv ? cv(String(s).trim()) : String(s).trim())
+                    .filter(s => s && !missingSet.includes(s))));
+                const total = Math.max(6, missingSet.length);
+                const opts = missingSet.concat(extras.slice(0, Math.max(0, total - missingSet.length)))
+                    .sort(() => Math.random() - 0.5);
+                const letter = c => String.fromCharCode(65 + opts.indexOf(c));
+
+                let html = `<div class="wp-exam">`;
+                html += trad
+                    ? `<h2>🧩 補全漢字（繁體）(Complete the Characters)</h2>`
+                    : `<h2>🧩 补全汉字 (Complete the Characters)</h2>`;
+                html += `<div class="wp-tip">Choose the correct component from A–${String.fromCharCode(64 + opts.length)} to complete each character, and write the letter in the box.</div>`;
+                html += `<div class="wp-opts">${opts.map((c, i) => `<span><b>${String.fromCharCode(65 + i)}</b>${escapeHtml(c)}</span>`).join('')}</div>`;
+
+                if (ex) {
+                    const py = getPinyinArray(ex.word);
+                    html += `<div class="wp-ex-label">例如：</div>`;
+                    html += `<div class="wp-gitem"><div class="wp-gleft"><span class="wp-gcol">${buildGridGroup(ex.word, py, ex.idx, ex.visible, ex.position, false)}<span class="wp-gen">${escapeHtml(ex.en)}</span></span><span class="wp-arrow"></span>${buildGridGroup(ex.word, py, ex.idx, ex.visible, ex.position, true)}</div><div class="wp-abox">${letter(ex.missing)}</div></div>`;
+                }
+
+                const answers = [];
+                items.forEach((o, i) => {
+                    const no = EXAM_START_NO + i;
+                    const py = getPinyinArray(o.word);
+                    answers.push(`${no}. ${letter(o.missing)}（${o.missing}）— ${o.word}`);
+                    html += `<div class="wp-gitem"><div class="wp-gleft"><span class="wp-no">${no}.</span><span class="wp-gcol">${buildGridGroup(o.word, py, o.idx, o.visible, o.position, false)}<span class="wp-gen">${escapeHtml(o.en)}</span></span></div><div class="wp-abox"></div></div>`;
+                });
+
+                html += ANSWER_TOGGLE;
+                html += `<div class="wp-answer" style="display:none;">參考答案：<br>${answers.map(escapeHtml).join('<br>')}</div>`;
+                html += `</div>`;
+                appendExamToBoard(html);
+            });
+        }
+
+        document.getElementById('btnRadicalExam').addEventListener('click', function() { runRadicalExam(this, false); });
+        document.getElementById('btnRadicalExamTC').addEventListener('click', function() { runRadicalExam(this, true); });
     }
 
     window.clearPptFromBoard = function() {

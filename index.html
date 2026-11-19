@@ -234,6 +234,10 @@
     .ppt-flat-notes-editor:focus { box-shadow:inset 0 0 0 2px rgba(59,130,246,.15); }
     .ppt-page-flat { background:#f8fafc!important; }
     .ppt-object:hover > .ppt-object-move-handle { display:block; }
+    .ppt-line-object { min-height:1px!important;overflow:visible!important;resize:none!important; }
+    .ppt-line-object:hover { outline:1px dashed #f59e0b; }
+    .ppt-text-object .ppt-object-content { box-sizing:border-box; }
+    .ppt-page-editable { background:#fff; }
     .document-page-annotation:focus { box-shadow:inset 0 0 0 2px rgba(59,130,246,.25); }
     .resizable-img-wrapper {
         display: inline-block;
@@ -1712,6 +1716,10 @@
                             const sz=Number(rp.getAttribute('sz'));if(sz)css.push('font-size:'+Math.max(6,Math.min(100,sz/100))+'pt');
                             if(rp.getAttribute('b')==='1')css.push('font-weight:bold');
                             if(rp.getAttribute('i')==='1')css.push('font-style:italic');
+                            if(rp.getAttribute('u') && rp.getAttribute('u')!=='none')css.push('text-decoration:underline');
+                            const latin=rp.getElementsByTagNameNS(A,'latin')[0], east=rp.getElementsByTagNameNS(A,'ea')[0];
+                            const face=(east&&east.getAttribute('typeface'))||(latin&&latin.getAttribute('typeface'));
+                            if(face)css.push('font-family:'+JSON.stringify(face));
                             const fill=rp.getElementsByTagNameNS(A,'solidFill')[0];if(fill)css.push('color:'+safeColor(fill));
                         }
                         content+='<span style="'+css.join(';')+'">'+escapeHtml(t.textContent)+'</span>';
@@ -1729,15 +1737,52 @@
                 loadingTextEl.innerText='正在保留第 '+(i+1)+' / '+entries.length+' 页的对象位置...';
                 const doc=parser.parseFromString(await entries[i].file.async('string'),'text/xml');
                 const tree=doc.getElementsByTagNameNS(P,'spTree')[0];if(!tree)continue;
-                const nodes=Array.from(tree.children).filter(n=>['sp','pic','graphicFrame'].includes(n.localName));
+                const topNodes=Array.from(tree.children).filter(n=>['sp','pic','graphicFrame','grpSp','cxnSp'].includes(n.localName));
+                const objectEntries=[];
+                // 递归展开组合对象，并将组内坐标映射回整张幻灯片坐标。
+                const collectObjects=(container,parent={sx:1,sy:1,tx:0,ty:0})=>{
+                    Array.from(container.children).forEach(child=>{
+                        if(child.localName==='grpSp'){
+                            const gx=Array.from(child.getElementsByTagNameNS(A,'xfrm')).find(x=>x.parentElement && x.parentElement.localName==='grpSpPr');
+                            if(!gx)return;
+                            const off=gx.getElementsByTagNameNS(A,'off')[0], ext=gx.getElementsByTagNameNS(A,'ext')[0];
+                            const chOff=gx.getElementsByTagNameNS(A,'chOff')[0], chExt=gx.getElementsByTagNameNS(A,'chExt')[0];
+                            if(!off||!ext||!chOff||!chExt)return;
+                            const sx=Number(ext.getAttribute('cx'))/(Number(chExt.getAttribute('cx'))||1);
+                            const sy=Number(ext.getAttribute('cy'))/(Number(chExt.getAttribute('cy'))||1);
+                            const tx=Number(off.getAttribute('x'))-Number(chOff.getAttribute('x'))*sx;
+                            const ty=Number(off.getAttribute('y'))-Number(chOff.getAttribute('y'))*sy;
+                            collectObjects(child,{sx:parent.sx*sx,sy:parent.sy*sy,tx:parent.tx+parent.sx*tx,ty:parent.ty+parent.sy*ty});
+                            return;
+                        }
+                        if(!['sp','pic','graphicFrame','cxnSp'].includes(child.localName))return;
+                        const local=transform(child);if(!local)return;
+                        const t={x:parent.tx+local.x*parent.sx,y:parent.ty+local.y*parent.sy,cx:local.cx*parent.sx,cy:local.cy*parent.sy};
+                        if(t.cx>0&&t.cy>0)objectEntries.push({node:child,t});
+                    });
+                };
+                collectObjects(tree);
+                const nodes=objectEntries.map(x=>x.node);
                 const objects=[];
-                for(const node of nodes){
-                    const t=transform(node);if(!t||!t.cx||!t.cy)continue;
+                for(const entry of objectEntries){
+                    const node=entry.node, t=entry.t;
                     const pos='left:'+(t.x/sw*100)+'%;top:'+(t.y/sh*100)+'%;width:'+(t.cx/sw*100)+'%;height:'+(t.cy/sh*100)+'%;z-index:'+(20+objects.length)+';';
                     const nv=node.getElementsByTagNameNS(P,'cNvPr')[0], name=nv?nv.getAttribute('name'):'';
-                    if(node.localName==='sp'){
-                        const content=textHtml(node);if(!content.replace(/<[^>]+>/g,'').trim())continue;
-                        objects.push('<div class="ppt-object ppt-text-object" style="'+pos+'" data-object-name="'+escapeHtml(name)+'"><div class="ppt-object-move-handle" contenteditable="false" title="拖动文字框">⠿</div><div class="ppt-object-content" contenteditable="true" spellcheck="false">'+content+'</div></div>');
+                    if(node.localName==='sp' || node.localName==='cxnSp'){
+                        const content=textHtml(node);
+                        const spPr=node.getElementsByTagNameNS(P,'spPr')[0] || node.getElementsByTagNameNS(P,'cxnSpPr')[0];
+                        const solid=spPr ? spPr.getElementsByTagNameNS(A,'solidFill')[0] : null;
+                        const lineColor=safeColor(solid);
+                        const geom=spPr ? spPr.getElementsByTagNameNS(A,'prstGeom')[0] : null;
+                        const shapeFill=spPr ? spPr.getElementsByTagNameNS(A,'solidFill')[0] : null;
+                        const fillColor=shapeFill ? safeColor(shapeFill) : 'transparent';
+                        const shapeStyle='background:'+fillColor+';';
+                        if(content.replace(/<[^>]+>/g,'').trim()){
+                            objects.push('<div class="ppt-object ppt-text-object" style="'+pos+shapeStyle+'" data-object-name="'+escapeHtml(name)+'"><div class="ppt-object-move-handle" contenteditable="false" title="拖动文字框">⠿</div><div class="ppt-object-content" contenteditable="true" spellcheck="false">'+content+'</div></div>');
+                        } else if(node.localName==='cxnSp' || geom){
+                            const lineWidth=spPr && spPr.getElementsByTagNameNS(A,'ln')[0] ? Math.max(1,Number(spPr.getElementsByTagNameNS(A,'ln')[0].getAttribute('w')||12700)/12700) : 1;
+                            objects.push('<div class="ppt-object ppt-line-object" style="'+pos+'border-top:'+lineWidth+'px solid '+lineColor+';pointer-events:auto;" title="'+escapeHtml(name)+'"></div>');
+                        }
                     } else if(node.localName==='pic'){
                         const blip=node.getElementsByTagNameNS(A,'blip')[0], rid=blip?(blip.getAttributeNS(R,'embed')||blip.getAttribute('r:embed')):'';
                         const src=await resolveImage(entries[i].n,rid);if(!src)continue;
@@ -1749,7 +1794,7 @@
                         objects.push('<div class="ppt-object ppt-text-object" style="'+pos+'"><div class="ppt-object-move-handle" contenteditable="false">⠿</div><div class="ppt-object-content" contenteditable="true">'+table+'</div></div>');
                     }
                 }
-                const flat = objects.length===1 && nodes.length===1 && nodes[0].localName==='pic' && (()=>{const t=transform(nodes[0]);return t&&t.x<sw*.01&&t.y<sh*.01&&t.cx>sw*.98&&t.cy>sh*.98;})();
+                const flat = objects.length===1 && topNodes.length===1 && topNodes[0].localName==='pic' && (()=>{const t=transform(topNodes[0]);return t&&t.x<sw*.01&&t.y<sh*.01&&t.cx>sw*.98&&t.cy>sh*.98;})();
                 const flatContent = flat
                     ? '<div class="ppt-flat-layout" contenteditable="false"><div class="ppt-flat-image-area">'+objects.join('')+'</div><div class="ppt-flat-notes-area"><div class="ppt-flat-notes-title" contenteditable="false">📝 课堂讲解 / 批注</div><div class="ppt-flat-notes-editor" contenteditable="true" spellcheck="false" data-placeholder="在这里输入讲解内容、重点提示或课堂备注……"></div></div></div>'
                     : objects.join('');

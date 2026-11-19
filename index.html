@@ -680,6 +680,7 @@
 
         <div class="flex flex-col gap-1.5 mt-auto pt-1">
             <button id="btnQuiz" class="w-full bg-amber-500 text-white py-1.5 rounded-lg font-bold hover:bg-amber-600 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-amber-600">🎯 生成课堂测验 (展示在白板)</button>
+            <button id="btnDownloadCombinedHomework" onclick="downloadCombinedHomework()" class="w-full bg-sky-700 text-white py-1.5 rounded-lg font-bold hover:bg-sky-800 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-sky-800">📥 合并下载课后练习（学生版 Word）</button>
             
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-1.5 rounded-lg font-medium hover:bg-emerald-700 transition text-xs cursor-pointer flex justify-center items-center mt-1 border-t border-slate-200 pt-2">📚 一键整理白板笔记</button>
             <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载复习笔记 (Word)</button>
@@ -1172,6 +1173,79 @@
         });
         return headerHtml + `<div style="font-family:'KaiTi','楷体','Microsoft YaHei',serif; font-size:14pt; line-height:1.9;">${clone.innerHTML}</div>`;
     }
+
+    // ================= 合并导出：看拼音写汉字 + 补全汉字 + 课堂测验 =================
+    // 仅从白板现有试题节点读取并克隆；所有清理、排版和导出都在副本中完成，
+    // 不修改白板 DOM、不清空课堂数据，也不影响撤销历史或课堂交互。
+    window.downloadCombinedHomework = function() {
+        const board = document.getElementById('whiteboardContent');
+        if (!board) return;
+
+        const sourceBlocks = Array.from(board.querySelectorAll('.wp-exam, .quiz-board'))
+            .filter(node => node.innerText && node.innerText.trim());
+        if (!sourceBlocks.length) {
+            alert('白板上还没有生成试题。请先生成“看拼音写汉字”“补全汉字”或“课堂测验”，再合并下载。');
+            return;
+        }
+
+        const sections = [];
+        sourceBlocks.forEach((source, index) => {
+            const clone = source.cloneNode(true);
+            // 学生版不包含参考答案、显示答案按钮和单题导出工具。
+            clone.querySelectorAll('.wp-no-export, .wp-answer-toggle, .wp-export-bar, .wp-answer').forEach(el => el.remove());
+            const h2 = clone.querySelector('h2');
+            const title = h2
+                ? h2.textContent.replace(/[📝✍️🧩]/g, '').trim()
+                : (clone.classList.contains('quiz-board') ? '课堂测验' : '汉字练习');
+
+            // 复用现有 Word 排版转换器，确保拼音、田字格/米字格和课堂测验沿用原有导出样式。
+            let sectionHtml = buildStandardWordBody(clone, title || '课后练习');
+            // buildStandardWordBody 为单题导出生成的姓名/日期表头在合并文件中只保留一次。
+            const headerEnd = sectionHtml.indexOf('</table>');
+            if (headerEnd >= 0) sectionHtml = sectionHtml.slice(headerEnd + '</table>'.length);
+
+            sections.push(
+                (index ? '<div style="page-break-before:always;"></div>' : '') +
+                '<h2 style="font-family:Microsoft YaHei,sans-serif;font-size:15pt;color:#1e3a8a;border-bottom:1.5pt solid #93c5fd;padding-bottom:5pt;margin:0 0 10pt 0;">' +
+                escapeHtml(title || '课后练习') + '</h2>' +
+                sectionHtml
+            );
+        });
+
+        const today = new Date();
+        const dateText = today.getFullYear() + '-' +
+            String(today.getMonth() + 1).padStart(2, '0') + '-' +
+            String(today.getDate()).padStart(2, '0');
+        const headerHtml = `
+            <table style="width:100%;border-collapse:collapse;margin-bottom:18pt;border-bottom:2pt solid #1e3a8a;">
+                <tr>
+                    <td style="font-family:'Microsoft YaHei',sans-serif;font-size:19pt;font-weight:bold;color:#1e3a8a;padding-bottom:7pt;">课后综合练习</td>
+                    <td style="text-align:right;font-family:Arial,sans-serif;font-size:10.5pt;color:#475569;padding-bottom:7pt;">姓名 Name: ____________ &nbsp;&nbsp; 日期 Date: ____________</td>
+                </tr>
+            </table>
+            <p style="font-family:Arial,sans-serif;font-size:9.5pt;color:#64748b;margin:0 0 16pt 0;">生成日期：${dateText}</p>
+        `;
+        const docHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+        <head><meta charset="utf-8"><title>课后综合练习</title>
+        <style>
+            body{font-family:'KaiTi','楷体','Microsoft YaHei',serif;font-size:14pt;color:#1e293b;}
+            p{margin:0 0 8pt 0;}h3{color:#b45309;font-size:13pt;margin:14pt 0 6pt 0;}
+            ul,ol{margin:0 0 10pt 18pt;}li{margin-bottom:6pt;}
+            ${BOARD_EXPORT_STYLE}
+            @page{margin:15mm 14mm;}
+        </style></head><body>
+        ${headerHtml}
+        ${sections.join('')}
+        </body></html>`;
+        const blob = new Blob(['\\ufeff' + docHtml], { type: 'application/msword' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = '课后综合练习_' + dateText + '.doc';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
 
     window.exportBoardExamWord = function(btn) {
         const data = getCleanBoardExamClone(btn);

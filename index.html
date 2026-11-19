@@ -1758,7 +1758,7 @@
                         if(!['sp','pic','graphicFrame','cxnSp'].includes(child.localName))return;
                         const local=transform(child);if(!local)return;
                         const t={x:parent.tx+local.x*parent.sx,y:parent.ty+local.y*parent.sy,cx:local.cx*parent.sx,cy:local.cy*parent.sy};
-                        if(t.cx>0&&t.cy>0)objectEntries.push({node:child,t});
+                        if(t.cx>0&&(t.cy>0 || child.localName==='cxnSp'))objectEntries.push({node:child,t:{...t,cy:Math.max(t.cy,1)}});
                     });
                 };
                 collectObjects(tree);
@@ -1770,7 +1770,7 @@
                     const nv=node.getElementsByTagNameNS(P,'cNvPr')[0], name=nv?nv.getAttribute('name'):'';
                     if(node.localName==='sp' || node.localName==='cxnSp'){
                         const content=textHtml(node);
-                        const spPr=node.getElementsByTagNameNS(P,'spPr')[0] || node.getElementsByTagNameNS(P,'cxnSpPr')[0];
+                        const spPr=node.getElementsByTagNameNS(A,'spPr')[0] || node.getElementsByTagNameNS(A,'cxnSpPr')[0];
                         const solid=spPr ? spPr.getElementsByTagNameNS(A,'solidFill')[0] : null;
                         const lineColor=safeColor(solid);
                         const geom=spPr ? spPr.getElementsByTagNameNS(A,'prstGeom')[0] : null;

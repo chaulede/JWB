@@ -211,12 +211,12 @@
     .document-page-canvas { isolation:isolate; }\n    .page-move-handle { opacity:.35; transition:opacity .15s; }\n    .document-page-canvas:hover .page-move-handle { opacity:1; }
     .document-page-annotation { cursor:text; white-space:pre-wrap; overflow-wrap:anywhere; }
     .ppt-object { position:absolute; box-sizing:border-box; }
-    .ppt-image-object { border:1px solid transparent; }
+    .ppt-image-object { border:1px solid transparent;overflow:hidden; }
     .ppt-image-object,.ppt-text-object { resize:both;overflow:auto;min-width:28px;min-height:24px; }
     .ppt-page-flat .ppt-image-object { z-index:1 !important; }
     .ppt-image-object::after { content:'';position:absolute;right:0;bottom:0;width:12px;height:12px;background:#2563eb;border:1px solid #fff;cursor:se-resize; }
     .ppt-image-object:hover,.ppt-text-object:hover { outline:1px dashed #60a5fa; }
-    .ppt-image-object img { width:100%;height:100%;display:block;object-fit:fill;pointer-events:none;user-select:none; }
+    .ppt-image-object img { display:block;object-fit:fill;pointer-events:none;user-select:none; }
     .ppt-text-object { padding:2px;overflow:auto; }
     .ppt-object-content { width:100%;height:100%;overflow:auto;outline:none;white-space:normal;overflow-wrap:anywhere;line-height:1.2; }
     .ppt-object-content:focus { outline:1px solid rgba(37,99,235,.55); }
@@ -1700,7 +1700,7 @@
                 if(!x)return null;
                 const off=x.getElementsByTagNameNS(A,'off')[0], ext=x.getElementsByTagNameNS(A,'ext')[0];
                 if(!off||!ext)return null;
-                return {x:+off.getAttribute('x'),y:+off.getAttribute('y'),cx:+ext.getAttribute('cx'),cy:+ext.getAttribute('cy')};
+                return {x:+off.getAttribute('x'),y:+off.getAttribute('y'),cx:+ext.getAttribute('cx'),cy:+ext.getAttribute('cy'),rotation:Number(x.getAttribute('rot')||0)/60000,flipH:x.getAttribute('flipH')==='1',flipV:x.getAttribute('flipV')==='1'};
             };
             const safeColor = node => {
                 if(!node)return '#222';
@@ -1804,7 +1804,7 @@
                         }
                         if(!['sp','pic','graphicFrame','cxnSp'].includes(child.localName))return;
                         const local=transform(child);if(!local)return;
-                        const t={x:parent.tx+local.x*parent.sx,y:parent.ty+local.y*parent.sy,cx:local.cx*parent.sx,cy:local.cy*parent.sy};
+                        const t={x:parent.tx+local.x*parent.sx,y:parent.ty+local.y*parent.sy,cx:local.cx*parent.sx,cy:local.cy*parent.sy,rotation:local.rotation||0,flipH:local.flipH,flipV:local.flipV};
                         if(t.cx>0&&(t.cy>0 || child.localName==='cxnSp'))objectEntries.push({node:child,t:{...t,cy:Math.max(t.cy,1)},groupPath:parent.groupPath});
                     });
                 };
@@ -1815,7 +1815,7 @@
                     const node=entry.node, t=entry.t;
                     const groupAttr=entry.groupPath.length?' data-group-path="'+escapeHtml(entry.groupPath.join('/'))+'"':'';
                     const groupHandle=entry.groupPath.length?'<div class="ppt-group-move-handle" contenteditable="false" title="拖动整个组合">组</div>':'';
-                    const pos='left:'+(t.x/sw*100)+'%;top:'+(t.y/sh*100)+'%;width:'+(t.cx/sw*100)+'%;height:'+(t.cy/sh*100)+'%;z-index:'+(20+objects.length)+';';
+                    const pos='left:'+(t.x/sw*100)+'%;top:'+(t.y/sh*100)+'%;width:'+(t.cx/sw*100)+'%;height:'+(t.cy/sh*100)+'%;z-index:'+(20+objects.length)+';'+(t.rotation?'rotate:'+t.rotation+'deg;':'')+(t.flipH||t.flipV?'scale:'+ (t.flipH?-1:1)+' '+(t.flipV?-1:1)+';':'');
                     const nv=node.getElementsByTagNameNS(P,'cNvPr')[0], name=nv?nv.getAttribute('name'):'';
                     if(node.localName==='sp' || node.localName==='cxnSp'){
                         const content=textHtml(node);
@@ -1835,7 +1835,12 @@
                     } else if(node.localName==='pic'){
                         const blip=node.getElementsByTagNameNS(A,'blip')[0], rid=blip?(blip.getAttributeNS(R,'embed')||blip.getAttribute('r:embed')):'';
                         const src=await resolveImage(entries[i].n,rid);if(!src)continue;
-                        objects.push('<div class="ppt-object ppt-image-object" style="'+pos+'" data-object-name="'+escapeHtml(name)+'"'+groupAttr+'>'+groupHandle+'<div class="ppt-object-move-handle" contenteditable="false" title="拖动图片">⠿</div><img src="'+src+'" draggable="false" contenteditable="false" alt="'+escapeHtml(name)+'"></div>');
+                        const srcRect=node.getElementsByTagNameNS(A,'srcRect')[0];
+                        const cropL=srcRect?Number(srcRect.getAttribute('l')||0)/100000:0, cropR=srcRect?Number(srcRect.getAttribute('r')||0)/100000:0;
+                        const cropT=srcRect?Number(srcRect.getAttribute('t')||0)/100000:0, cropB=srcRect?Number(srcRect.getAttribute('b')||0)/100000:0;
+                        const cropW=Math.max(.01,1-cropL-cropR), cropH=Math.max(.01,1-cropT-cropB);
+                        const cropStyle='position:absolute;left:'+(-cropL/cropW*100)+'%;top:'+(-cropT/cropH*100)+'%;width:'+(100/cropW)+'%;height:'+(100/cropH)+'%;max-width:none;';
+                        objects.push('<div class="ppt-object ppt-image-object" style="'+pos+'" data-object-name="'+escapeHtml(name)+'"'+groupAttr+'>'+groupHandle+'<div class="ppt-object-move-handle" contenteditable="false" title="拖动图片">⠿</div><img src="'+src+'" draggable="false" contenteditable="false" alt="'+escapeHtml(name)+'" style="'+cropStyle+'"></div>');
                     } else if(node.localName==='graphicFrame'){
                         const tbl=node.getElementsByTagNameNS(A,'tbl')[0];if(!tbl)continue;
                         let table='<table style="width:100%;height:100%;border-collapse:collapse;">';

@@ -1701,17 +1701,30 @@
             };
             const textHtml = shape => {
                 const body=shape.getElementsByTagNameNS(A,'txBody')[0]; if(!body)return '';
+                const bodyPr=body.getElementsByTagNameNS(A,'bodyPr')[0];
+                const anchor=bodyPr?bodyPr.getAttribute('anchor'):'';
+                const vertical=anchor==='ctr'?'justify-content:center;':anchor==='b'?'justify-content:flex-end;':'justify-content:flex-start;';
+                const insets=bodyPr?{
+                    l:Number(bodyPr.getAttribute('lIns')||91440)/sw*100,
+                    r:Number(bodyPr.getAttribute('rIns')||91440)/sw*100,
+                    t:Number(bodyPr.getAttribute('tIns')||45720)/sh*100,
+                    b:Number(bodyPr.getAttribute('bIns')||45720)/sh*100
+                }:null;
                 const paragraphs=Array.from(body.getElementsByTagNameNS(A,'p'));
-                return paragraphs.map(p=>{
+                return '<div style="width:100%;height:100%;display:flex;flex-direction:column;'+vertical+';box-sizing:border-box;'+(insets?'padding:'+insets.t+'% '+insets.r+'% '+insets.b+'% '+insets.l+'%;':'')+'">'+paragraphs.map(p=>{
                     const pp=p.getElementsByTagNameNS(A,'pPr')[0], alg=pp?pp.getAttribute('algn'):'';
                     const align=alg==='ctr'?'center':alg==='r'?'right':alg==='just'?'justify':'left';
+                    const defaultRun=pp?pp.getElementsByTagNameNS(A,'defRPr')[0]:null;
+                    const paragraphStyle=[];
+                    if(pp && pp.getAttribute('marL')) paragraphStyle.push('margin-left:'+Number(pp.getAttribute('marL'))/sw*100+'%');
+                    if(pp && pp.getAttribute('indent')) paragraphStyle.push('text-indent:'+Number(pp.getAttribute('indent'))/sw*100+'%');
                     let content='';
                     Array.from(p.childNodes).forEach(run=>{
                         if(run.nodeType!==1)return;
                         if(run.localName==='br'){content+='<br>';return;}
                         if(!['r','fld'].includes(run.localName))return;
                         const t=run.getElementsByTagNameNS(A,'t')[0]; if(!t)return;
-                        const rp=run.getElementsByTagNameNS(A,'rPr')[0], css=[];
+                        const rp=run.getElementsByTagNameNS(A,'rPr')[0]||defaultRun, css=[];
                         if(rp){
                             const sz=Number(rp.getAttribute('sz'));if(sz)css.push('font-size:'+Math.max(6,Math.min(100,sz/100))+'pt');
                             if(rp.getAttribute('b')==='1')css.push('font-weight:bold');
@@ -1725,8 +1738,8 @@
                         content+='<span style="'+css.join(';')+'">'+escapeHtml(t.textContent)+'</span>';
                     });
                     if(!content)content=Array.from(p.getElementsByTagNameNS(A,'t')).map(t=>escapeHtml(t.textContent)).join('');
-                    return '<div style="text-align:'+align+';min-height:1em;">'+(content||'<br>')+'</div>';
-                }).join('');
+                    return '<div style="text-align:'+align+';min-height:1em;'+paragraphStyle.join(';')+'">'+(content||'<br>')+'</div>';
+                }).join('')+'</div>';
             };
             const entries=[];
             zip.folder('ppt/slides').forEach((path,file)=>{const m=path.match(/^slide(\d+)\.xml$/);if(m&&!file.dir)entries.push({n:+m[1],file});});
@@ -1736,6 +1749,9 @@
             for(let i=0;i<entries.length;i++){
                 loadingTextEl.innerText='正在保留第 '+(i+1)+' / '+entries.length+' 页的对象位置...';
                 const doc=parser.parseFromString(await entries[i].file.async('string'),'text/xml');
+                const bgNode=doc.getElementsByTagNameNS(P,'bg')[0];
+                const bgSolid=bgNode?bgNode.getElementsByTagNameNS(A,'srgbClr')[0]:null;
+                const slideBackground=bgSolid?'#'+bgSolid.getAttribute('val'):'#ffffff';
                 const tree=doc.getElementsByTagNameNS(P,'spTree')[0];if(!tree)continue;
                 const topNodes=Array.from(tree.children).filter(n=>['sp','pic','graphicFrame','grpSp','cxnSp'].includes(n.localName));
                 const objectEntries=[];
@@ -1798,7 +1814,7 @@
                 const flatContent = flat
                     ? '<div class="ppt-flat-layout" contenteditable="false"><div class="ppt-flat-image-area">'+objects.join('')+'</div><div class="ppt-flat-notes-area"><div class="ppt-flat-notes-title" contenteditable="false">📝 课堂讲解 / 批注</div><div class="ppt-flat-notes-editor" contenteditable="true" spellcheck="false" data-placeholder="在这里输入讲解内容、重点提示或课堂备注……"></div></div></div>'
                     : objects.join('');
-                result+='<div class="pptx-import document-page-canvas '+(flat?'ppt-page-flat':'ppt-page-editable')+'" contenteditable="false" style="position:relative;width:min(100%,960px);aspect-ratio:'+ratio+';margin:18px auto;background:#fff;border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.1);overflow:hidden;resize:both;min-width:420px;min-height:240px;">'+
+                result+='<div class="pptx-import document-page-canvas '+(flat?'ppt-page-flat':'ppt-page-editable')+'" contenteditable="false" style="position:relative;width:min(100%,960px);aspect-ratio:'+ratio+';margin:18px auto;background:'+slideBackground+';border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.1);overflow:hidden;resize:both;min-width:420px;min-height:240px;">'+
                     '<div class="page-move-handle" contenteditable="false" title="拖动整页" style="position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:900;padding:2px 10px;background:#2563eb;color:white;border-radius:0 0 6px 6px;font:11px Arial;cursor:move;">↕ 移动页面</div>'+
                     flatContent+
                     (flat?'':'<div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:10;padding:12px;outline:none;pointer-events:auto;"></div>')+

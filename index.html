@@ -221,6 +221,18 @@
     .ppt-object-content { width:100%;height:100%;overflow:auto;outline:none;white-space:normal;overflow-wrap:anywhere;line-height:1.2; }
     .ppt-object-content:focus { outline:1px solid rgba(37,99,235,.55); }
     .ppt-object-move-handle { position:absolute;left:0;top:0;z-index:950;display:none;padding:0 5px;border-radius:0 0 4px 0;background:rgba(37,99,235,.92);color:#fff;font:12px Arial;line-height:16px;cursor:move;user-select:none; }
+    /* 纯图片型 PPT：左侧图片、右侧独立课堂讲解区 */
+    .ppt-flat-layout { position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(180px,1fr);gap:0;padding:28px 10px 10px;box-sizing:border-box;background:#f8fafc; }
+    .ppt-flat-image-area { min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px;border-right:1px solid #cbd5e1;overflow:auto; }
+    .ppt-flat-image-area .ppt-object { position:relative!important;left:auto!important;top:auto!important;width:100%!important;height:100%!important;max-width:100%;max-height:100%;transform:none!important;resize:both;overflow:hidden; }
+    .ppt-flat-image-area .ppt-image-object img { width:100%;height:100%;object-fit:contain;background:#fff; }
+    .ppt-flat-image-area .ppt-object-move-handle { display:none!important; }
+    .ppt-flat-notes-area { min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #dbeafe;border-radius:8px;margin:8px;overflow:hidden; }
+    .ppt-flat-notes-title { flex:none;padding:9px 12px;background:#eff6ff;border-bottom:1px solid #dbeafe;color:#1e40af;font:600 13px Arial,'Microsoft YaHei',sans-serif; }
+    .ppt-flat-notes-editor { flex:1;min-height:0;padding:12px;outline:none;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.7 Arial,'Microsoft YaHei',sans-serif;color:#1e293b;cursor:text; }
+    .ppt-flat-notes-editor:empty:before { content:attr(data-placeholder);color:#94a3b8;pointer-events:none; }
+    .ppt-flat-notes-editor:focus { box-shadow:inset 0 0 0 2px rgba(59,130,246,.15); }
+    .ppt-page-flat { background:#f8fafc!important; }
     .ppt-object:hover > .ppt-object-move-handle { display:block; }
     .document-page-annotation:focus { box-shadow:inset 0 0 0 2px rgba(59,130,246,.25); }
     .resizable-img-wrapper {
@@ -1738,11 +1750,14 @@
                     }
                 }
                 const flat = objects.length===1 && nodes.length===1 && nodes[0].localName==='pic' && (()=>{const t=transform(nodes[0]);return t&&t.x<sw*.01&&t.y<sh*.01&&t.cx>sw*.98&&t.cy>sh*.98;})();
-                result+='<div class="pptx-import document-page-canvas '+(flat?'ppt-page-flat':'ppt-page-editable')+'" contenteditable="false" style="position:relative;width:min(100%,960px);aspect-ratio:'+ratio+';margin:18px auto;background:#fff;border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.1);overflow:hidden;resize:both;min-width:320px;min-height:180px;">'+
+                const flatContent = flat
+                    ? '<div class="ppt-flat-layout" contenteditable="false"><div class="ppt-flat-image-area">'+objects.join('')+'</div><div class="ppt-flat-notes-area"><div class="ppt-flat-notes-title" contenteditable="false">📝 课堂讲解 / 批注</div><div class="ppt-flat-notes-editor" contenteditable="true" spellcheck="false" data-placeholder="在这里输入讲解内容、重点提示或课堂备注……"></div></div></div>'
+                    : objects.join('');
+                result+='<div class="pptx-import document-page-canvas '+(flat?'ppt-page-flat':'ppt-page-editable')+'" contenteditable="false" style="position:relative;width:min(100%,960px);aspect-ratio:'+(flat?'1.25':ratio)+';margin:18px auto;background:#fff;border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.1);overflow:hidden;resize:both;min-width:420px;min-height:240px;">'+
                     '<div class="page-move-handle" contenteditable="false" title="拖动整页" style="position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:900;padding:2px 10px;background:#2563eb;color:white;border-radius:0 0 6px 6px;font:11px Arial;cursor:move;">↕ 移动页面</div>'+
-                    objects.join('')+
-                    '<div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:10;padding:12px;outline:none;pointer-events:auto;"></div>'+
-                    '<div contenteditable="false" style="position:absolute;left:8px;top:6px;z-index:901;font:11px Arial;color:#64748b;background:rgba(255,255,255,.8);padding:2px 5px;">PPT '+(i+1)+'/'+entries.length+(flat?' · 整页图片':' · 独立对象')+'</div></div>';
+                    flatContent+
+                    (flat?'':'<div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:10;padding:12px;outline:none;pointer-events:auto;"></div>')+
+                    '<div contenteditable="false" style="position:absolute;left:8px;top:6px;z-index:901;font:11px Arial;color:#64748b;background:rgba(255,255,255,.8);padding:2px 5px;">PPT '+(i+1)+'/'+entries.length+(flat?' · 图片 + 讲解区':' · 独立对象')+'</div></div>';
             }
             return result;
         }

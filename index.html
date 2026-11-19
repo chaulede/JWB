@@ -680,7 +680,7 @@
 
         <div class="flex flex-col gap-1.5 mt-auto pt-1">
             <button id="btnQuiz" class="w-full bg-amber-500 text-white py-1.5 rounded-lg font-bold hover:bg-amber-600 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-amber-600">🎯 生成课堂测验 (展示在白板)</button>
-            <button id="btnDownloadCombinedHomework" onclick="downloadCombinedHomework()" class="w-full bg-sky-700 text-white py-1.5 rounded-lg font-bold hover:bg-sky-800 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-sky-800">📥 合并下载课后练习（学生版 Word）</button>
+            <button id="btnDownloadCombinedHomework" onclick="downloadCombinedHomework()" class="w-full bg-sky-700 text-white py-1.5 rounded-lg font-bold hover:bg-sky-800 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-sky-800">📥 下载白板上的试题</button>
             
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-1.5 rounded-lg font-medium hover:bg-emerald-700 transition text-xs cursor-pointer flex justify-center items-center mt-1 border-t border-slate-200 pt-2">📚 一键整理白板笔记</button>
             <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载复习笔记 (Word)</button>
@@ -1096,7 +1096,12 @@
                     const py = (cell.querySelector('.wp-gpy')?.textContent || '').trim();
                     const partEl = cell.querySelector('.wp-part');
                     const gg = (cell.querySelector('.wp-gg')?.textContent || '').trim();
-                    let alignStyle = 'text-align:center;';
+                    const isMiGrid = !!cell.querySelector('.wp-gch.mi');
+                    // 米字格导出时补上两条对角线；田字格保留十字线。
+                    const gridBackground = isMiGrid
+                        ? 'background-image:linear-gradient(45deg, transparent 49.2%, #cbd5e1 49.2%, #cbd5e1 50.8%, transparent 50.8%),linear-gradient(-45deg, transparent 49.2%, #cbd5e1 49.2%, #cbd5e1 50.8%, transparent 50.8%),linear-gradient(#cbd5e1,#cbd5e1) center/1px 100% no-repeat,linear-gradient(#cbd5e1,#cbd5e1) center/100% 1px no-repeat;'
+                        : 'background-image:linear-gradient(#cbd5e1,#cbd5e1) center/1px 100% no-repeat,linear-gradient(#cbd5e1,#cbd5e1) center/100% 1px no-repeat;';
+                    let alignStyle = 'text-align:center;'
                     if (partEl) {
                         if (partEl.classList.contains('p-left') || partEl.classList.contains('p-enc-l')) alignStyle = 'text-align:left; padding-left:3pt;';
                         else if (partEl.classList.contains('p-right') || partEl.classList.contains('p-enc-r')) alignStyle = 'text-align:right; padding-right:3pt;';
@@ -1104,7 +1109,7 @@
                         else if (partEl.classList.contains('p-bottom')) alignStyle = 'text-align:center; vertical-align:bottom; padding-bottom:1pt;';
                     }
                     pyRow += `<td style="width:30pt; height:13pt; border:1pt solid #334155; border-bottom:1pt dashed #64748b; text-align:center; font-family:Arial,sans-serif; font-size:9.5pt; color:#1e293b;">${escapeHtml(py)}</td>`;
-                    chRow += `<td style="width:30pt; height:30pt; border:1pt solid #334155; border-top:none; font-family:'DFKai-SB','標楷體','MingLiU','PMingLiU','Noto Serif CJK TC','KaiTi',serif; font-size:18pt; color:#1e293b; vertical-align:middle; ${alignStyle}">${escapeHtml(gg)}</td>`;
+                    chRow += `<td style="width:30pt; height:30pt; border:1pt solid #334155; border-top:none; ${gridBackground} font-family:'DFKai-SB','標楷體','MingLiU','PMingLiU','Noto Serif CJK TC','KaiTi',serif; font-size:18pt; color:#1e293b; vertical-align:middle; ${alignStyle}">${escapeHtml(gg)}</td>`;
                 });
                 return `<table style="border-collapse:collapse; display:inline-table;"><tr>${pyRow}</tr><tr>${chRow}</tr></table>`;
             };
@@ -1205,8 +1210,8 @@
             if (headerEnd >= 0) sectionHtml = sectionHtml.slice(headerEnd + '</table>'.length);
 
             sections.push(
-                (index ? '<div style="page-break-before:always;"></div>' : '') +
-                '<h2 style="font-family:Microsoft YaHei,sans-serif;font-size:15pt;color:#1e3a8a;border-bottom:1.5pt solid #93c5fd;padding-bottom:5pt;margin:0 0 10pt 0;">' +
+                (index ? '<div style="height:10pt;"></div>' : '') +
+                '<h2 style="font-family:Microsoft YaHei,sans-serif;font-size:15pt;color:#1e3a8a;border-bottom:1.5pt solid #93c5fd;padding-bottom:5pt;margin:0 0 10pt 0;page-break-after:avoid;">' +
                 escapeHtml(title || '课后练习') + '</h2>' +
                 sectionHtml
             );

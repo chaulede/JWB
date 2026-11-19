@@ -2128,6 +2128,30 @@
                 }
             }
         });
+        // 编辑已注音文字时，先解除光标所在汉字的 ruby 包装，防止新字进入拼音标注层。
+        whiteboard.addEventListener('beforeinput', function(e) {
+            if (!/^insert|^delete/.test(e.inputType || '')) return;
+            const sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return;
+            const range = sel.getRangeAt(0);
+            if (!range.collapsed || !whiteboard.contains(range.startContainer)) return;
+            const host = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+            const ruby = host && host.closest('ruby');
+            if (!ruby) return;
+            const base = Array.from(ruby.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+            if (!base) return;
+            e.preventDefault();
+            const textNode = document.createTextNode(base.textContent);
+            ruby.replaceWith(textNode);
+            const nr = document.createRange();
+            nr.setStart(textNode, Math.min(range.startOffset, textNode.length));
+            nr.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(nr);
+            // 触发原生输入前不再阻止后续按键；用户可直接继续编辑。
+            saveHistoryImmediate();
+        });
+
         // ====== 边打边注音模式结束 ======
 
         document.getElementById('btnUndo').addEventListener('click', doUndo);
@@ -2737,6 +2761,28 @@
             return { range, has };
         }
 
+        // 精确按选区逐字移除拼音：每个汉字一个 ruby，只移除实际选中的字。
+        function removePinyinFromSelection(range) {
+            const targets = [];
+            whiteboard.querySelectorAll('ruby').forEach(ruby => {
+                const base = Array.from(ruby.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+                if (!base) return;
+                try { if (range.intersectsNode(base)) targets.push({ node: ruby, text: base.textContent }); } catch (e) {}
+            });
+            // 兼容旧版拼音表格格式
+            whiteboard.querySelectorAll('.pinyin-inline-table').forEach(table => {
+                try { if (range.intersectsNode(table)) targets.push({ node: table, text: restorePinyinText(table) }); } catch (e) {}
+            });
+            if (!targets.length) return false;
+            saveHistoryImmediate();
+            targets.forEach(x => { if (x.node.parentNode) x.node.replaceWith(document.createTextNode(x.text)); });
+            const sel = window.getSelection();
+            if (sel) sel.removeAllRanges();
+            saveHistoryImmediate();
+            setTimeout(resizeCanvas, 80);
+            return true;
+        }
+
         document.getElementById('btnTogglePinyin').addEventListener('click', function() {
             const selection = window.getSelection();
             if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
@@ -2747,7 +2793,7 @@
             if (!selectedText) { alert('请先用鼠标选中文字！'); return; }
             const info = selectionHasAny('.pinyin-inline-table, ruby');
             if (info && info.has) {
-                removeSelectedElements('.pinyin-inline-table, ruby', restorePinyinText, '选中的范围内没有拼音。');
+                if (!removePinyinFromSelection(range)) alert('选中的范围内没有可移除的拼音。');
             } else {
                 addPinyinToSelection(range, selectedText);
             }

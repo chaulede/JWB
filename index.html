@@ -208,6 +208,9 @@
     #drawCanvas.active { pointer-events: auto; cursor: crosshair; }
     
     /* ===== 修复 : 图片自由缩放包裹层样式 ===== */
+    .document-page-canvas { isolation:isolate; }
+    .document-page-annotation { cursor:text; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .document-page-annotation:focus { box-shadow:inset 0 0 0 2px rgba(59,130,246,.25); }
     .resizable-img-wrapper {
         display: inline-block;
         position: relative;
@@ -1616,23 +1619,35 @@
                     const reader = new FileReader();
                     reader.onload = async (e) => {
                         try {
+                            if (typeof pdfjsLib === 'undefined') throw new Error('PDF 阅读组件未加载，请刷新页面后重试。');
                             const typedarray = new Uint8Array(e.target.result);
                             const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                            let fullText = "";
+                            let pagesHtml = '';
                             for (let i = 1; i <= pdf.numPages; i++) {
+                                loadingText.innerText = `正在保留 PDF 原始页面：第 ${i} / ${pdf.numPages} 页...`;
                                 const page = await pdf.getPage(i);
-                                const textContent = await page.getTextContent();
-                                let pageText = "";
-                                textContent.items.forEach(item => {
-                                    pageText += item.str;
-                                    if (item.hasEOL) pageText += "\n";
-                                });
-                                fullText += pageText + "\n";
+                                const viewport = page.getViewport({ scale: 1.6 });
+                                const canvas = document.createElement('canvas');
+                                canvas.width = Math.ceil(viewport.width);
+                                canvas.height = Math.ceil(viewport.height);
+                                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                                const src = canvas.toDataURL('image/png');
+                                const ratio = viewport.width / viewport.height;
+                                pagesHtml += `<div class="pptx-import document-page-canvas" contenteditable="true" style="position:relative;width:min(100%,960px);aspect-ratio:${ratio};margin:18px auto;background:#fff;border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.10);overflow:hidden;">
+                                    <img src="${src}" alt="PDF 第 ${i} 页" draggable="false" contenteditable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;user-select:none;pointer-events:none;">
+                                    <div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:2;padding:12px;outline:none;"></div>
+                                    <div contenteditable="false" style="position:absolute;left:8px;top:6px;z-index:3;font:11px Arial;color:#64748b;background:rgba(255,255,255,.8);padding:2px 5px;border-radius:3px;">PDF · ${i}/${pdf.numPages}</div>
+                                </div>`;
                             }
-                            renderText(fullText.replace(/\n{3,}/g, '\n\n'));
-                            loadingOverlay.classList.add('hidden');
+                            if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') pagesHtml = '<hr style="border:1px dashed #cbd5e1;margin:24px 0;">' + pagesHtml;
+                            whiteboard.insertAdjacentHTML('beforeend', pagesHtml);
+                            saveHistoryImmediate();
+                            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+                            setTimeout(resizeCanvas, 120);
                         } catch (err) {
-                            alert("PDF 解析引擎崩溃：\n" + err.message);
+                            console.error('PDF 页面导入失败:', err);
+                            alert('PDF 导入失败：' + err.message);
+                        } finally {
                             loadingOverlay.classList.add('hidden');
                         }
                     };
@@ -1811,6 +1826,22 @@
                                     if (embedId && imgMap[embedId] && mediaFiles[imgMap[embedId]]) {
                                         foundImgs.push(mediaFiles[imgMap[embedId]]);
                                     }
+                                }
+
+                                // 完整页面图片型 PPT：按原幻灯片比例显示整页，不缩到页面底部。
+                                if (foundImgs.length === 1) {
+                                    const presXml = await zip.file('ppt/presentation.xml').async('string');
+                                    const presDoc = parser.parseFromString(presXml, 'text/xml');
+                                    const sldSz = presDoc.getElementsByTagNameNS('http://schemas.openxmlformats.org/presentationml/2006/main', 'sldSz')[0];
+                                    const sw = sldSz ? Number(sldSz.getAttribute('cx')) : 16;
+                                    const sh = sldSz ? Number(sldSz.getAttribute('cy')) : 9;
+                                    slideHtml = `<div class="pptx-import document-page-canvas" contenteditable="true" style="position:relative;width:min(100%,960px);aspect-ratio:${sw / sh};margin:18px auto;padding:0;min-height:0;max-width:960px;background:#fff;border:1px solid #cbd5e1;border-radius:5px;box-shadow:0 3px 12px rgba(15,23,42,.10);overflow:hidden;">
+                                        <img src="${foundImgs[0]}" alt="PPT 第 ${i + 1} 页完整页面" draggable="false" contenteditable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;user-select:none;pointer-events:none;">
+                                        <div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:2;padding:12px;outline:none;"></div>
+                                        <div contenteditable="false" style="position:absolute;left:8px;top:6px;z-index:3;font:11px Arial;color:#64748b;background:rgba(255,255,255,.8);padding:2px 5px;border-radius:3px;">PPT · ${i + 1}/${slideEntries.length}</div>
+                                    </div>`;
+                                    fullHtml += slideHtml;
+                                    continue;
                                 }
 
                                 if (foundImgs.length > 0) {

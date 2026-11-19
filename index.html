@@ -1742,8 +1742,31 @@
                 }).join('')+'</div>';
             };
             const entries=[];
-            zip.folder('ppt/slides').forEach((path,file)=>{const m=path.match(/^slide(\d+)\.xml$/);if(m&&!file.dir)entries.push({n:+m[1],file});});
+            zip.folder('ppt/slides').forEach((path,file)=>{const m=path.match(/^slide(\d+)\.xml$/);if(m&&!file.dir)entries.push({n:+m[1],path:'ppt/slides/'+path,file});});
             entries.sort((a,b)=>a.n-b.n);
+            // 按 presentation.xml 中的 sldId 顺序读取，尊重 PowerPoint 中用户调整过的页面顺序。
+            try {
+                const relFile=zip.file('ppt/_rels/presentation.xml.rels');
+                const sldList=pres.getElementsByTagNameNS(P,'sldIdLst')[0];
+                if(relFile&&sldList){
+                    const relDoc=parser.parseFromString(await relFile.async('string'),'text/xml');
+                    const rels=Array.from(relDoc.getElementsByTagName('Relationship'));
+                    const ordered=[];
+                    Array.from(sldList.children).forEach(idNode=>{
+                        const rid=idNode.getAttributeNS(R,'id')||idNode.getAttribute('r:id');
+                        const rel=rels.find(x=>x.getAttribute('Id')===rid);
+                        if(!rel)return;
+                        let target=rel.getAttribute('Target')||'';
+                        target=target.startsWith('/')?target.slice(1):'ppt/'+target;
+                        const stack=[];
+                        target.split('/').forEach(part=>{if(!part||part==='.')return;if(part==='..')stack.pop();else stack.push(part);});
+                        const path=stack.join('/');
+                        const found=entries.find(x=>x.path===path);
+                        if(found)ordered.push(found);
+                    });
+                    if(ordered.length===entries.length)entries.splice(0,entries.length,...ordered);
+                }
+            } catch(orderError) { console.warn('PPT 页面顺序读取失败，使用文件顺序：',orderError); }
             if(!entries.length)throw new Error('未找到幻灯片。');
             let result='';
             for(let i=0;i<entries.length;i++){

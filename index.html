@@ -221,6 +221,8 @@
     .ppt-object-content { width:100%;height:100%;overflow:auto;outline:none;white-space:normal;overflow-wrap:anywhere;line-height:1.2; }
     .ppt-object-content:focus { outline:1px solid rgba(37,99,235,.55); }
     .ppt-object-move-handle { position:absolute;left:0;top:0;z-index:950;display:none;padding:0 5px;border-radius:0 0 4px 0;background:rgba(37,99,235,.92);color:#fff;font:12px Arial;line-height:16px;cursor:move;user-select:none; }
+    .ppt-group-move-handle { position:absolute;right:0;top:0;z-index:951;display:none;padding:0 5px;background:#0f766e;color:#fff;font:11px/16px Arial;cursor:move;user-select:none;border-radius:0 0 0 4px; }
+    .ppt-object:hover > .ppt-group-move-handle { display:block; }
     /* 纯图片型 PPT：左侧图片、右侧独立课堂讲解区 */
     .ppt-flat-layout { position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,2.5fr) minmax(180px,1fr);gap:0;padding:28px 10px 10px;box-sizing:border-box;background:#f8fafc; }
     .ppt-flat-image-area { min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px;border-right:1px solid #cbd5e1;overflow:auto; }
@@ -1371,27 +1373,33 @@
             pageDragStart = null;
         });
 
-        // PPT 对象独立拖动：文字框与图片均通过左上角手柄移动。
-        let movingPptObject = null, pptObjectDragStart = null;
+        // PPT 对象支持单独移动；带“组”标记的对象可连同同组对象一起移动。
+        let movingPptObjects = [], pptObjectDragStart = null;
         whiteboard.addEventListener('pointerdown', function(e) {
-            const handle=e.target.closest('.ppt-object-move-handle');
-            if(!handle)return;
-            const obj=handle.closest('.ppt-object');if(!obj)return;
+            const groupHandle=e.target.closest('.ppt-group-move-handle');
+            const objectHandle=e.target.closest('.ppt-object-move-handle');
+            if(!groupHandle&&!objectHandle)return;
+            const obj=e.target.closest('.ppt-object');if(!obj)return;
             e.preventDefault();e.stopPropagation();
-            movingPptObject=obj;
-            const tr=obj.style.transform||'';
-            const m=tr.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
-            pptObjectDragStart={x:e.clientX,y:e.clientY,dx:m?Number(m[1]):0,dy:m?Number(m[2]):0};
-            handle.setPointerCapture(e.pointerId);
+            let targets=[obj];
+            if(groupHandle && obj.dataset.groupPath){
+                const page=obj.closest('.pptx-import');
+                targets=Array.from(page.querySelectorAll('.ppt-object')).filter(el=>el.dataset.groupPath===obj.dataset.groupPath);
+            }
+            movingPptObjects=targets.map(el=>{
+                const m=(el.style.transform||'').match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+                return {el,dx:m?Number(m[1]):0,dy:m?Number(m[2]):0};
+            });
+            pptObjectDragStart={x:e.clientX,y:e.clientY};
+            (groupHandle||objectHandle).setPointerCapture(e.pointerId);
         });
         whiteboard.addEventListener('pointermove',function(e){
-            if(!movingPptObject||!pptObjectDragStart)return;
-            movingPptObject.style.transform='translate('+(pptObjectDragStart.dx+e.clientX-pptObjectDragStart.x)+'px,'+(pptObjectDragStart.dy+e.clientY-pptObjectDragStart.y)+'px)';
+            if(!movingPptObjects.length||!pptObjectDragStart)return;
+            const dx=e.clientX-pptObjectDragStart.x,dy=e.clientY-pptObjectDragStart.y;
+            movingPptObjects.forEach(item=>{item.el.style.transform='translate('+(item.dx+dx)+'px,'+(item.dy+dy)+'px)';});
         });
-        whiteboard.addEventListener('pointerup',function(){if(movingPptObject)saveHistoryImmediate();movingPptObject=null;pptObjectDragStart=null;});
-        whiteboard.addEventListener('pointercancel',function(){movingPptObject=null;pptObjectDragStart=null;});
-
-
+        whiteboard.addEventListener('pointerup',function(){if(movingPptObjects.length)saveHistoryImmediate();movingPptObjects=[];pptObjectDragStart=null;});
+        whiteboard.addEventListener('pointercancel',function(){movingPptObjects=[];pptObjectDragStart=null;});
 
         // 粘贴图片功能
         whiteboard.addEventListener('paste', function(e) {
@@ -1779,7 +1787,7 @@
                 const topNodes=Array.from(tree.children).filter(n=>['sp','pic','graphicFrame','grpSp','cxnSp'].includes(n.localName));
                 const objectEntries=[];
                 // 递归展开组合对象，并将组内坐标映射回整张幻灯片坐标。
-                const collectObjects=(container,parent={sx:1,sy:1,tx:0,ty:0})=>{
+                const collectObjects=(container,parent={sx:1,sy:1,tx:0,ty:0,groupPath:[]})=>{
                     Array.from(container.children).forEach(child=>{
                         if(child.localName==='grpSp'){
                             const gx=Array.from(child.getElementsByTagNameNS(A,'xfrm')).find(x=>x.parentElement && x.parentElement.localName==='grpSpPr');
@@ -1791,13 +1799,13 @@
                             const sy=Number(ext.getAttribute('cy'))/(Number(chExt.getAttribute('cy'))||1);
                             const tx=Number(off.getAttribute('x'))-Number(chOff.getAttribute('x'))*sx;
                             const ty=Number(off.getAttribute('y'))-Number(chOff.getAttribute('y'))*sy;
-                            collectObjects(child,{sx:parent.sx*sx,sy:parent.sy*sy,tx:parent.tx+parent.sx*tx,ty:parent.ty+parent.sy*ty});
+                            const groupNv=child.getElementsByTagNameNS(P,'cNvPr')[0]; const groupId=groupNv?(groupNv.getAttribute('id')||groupNv.getAttribute('name')):('group'+objectEntries.length); collectObjects(child,{sx:parent.sx*sx,sy:parent.sy*sy,tx:parent.tx+parent.sx*tx,ty:parent.ty+parent.sy*ty,groupPath:parent.groupPath.concat(String(groupId))});
                             return;
                         }
                         if(!['sp','pic','graphicFrame','cxnSp'].includes(child.localName))return;
                         const local=transform(child);if(!local)return;
                         const t={x:parent.tx+local.x*parent.sx,y:parent.ty+local.y*parent.sy,cx:local.cx*parent.sx,cy:local.cy*parent.sy};
-                        if(t.cx>0&&(t.cy>0 || child.localName==='cxnSp'))objectEntries.push({node:child,t:{...t,cy:Math.max(t.cy,1)}});
+                        if(t.cx>0&&(t.cy>0 || child.localName==='cxnSp'))objectEntries.push({node:child,t:{...t,cy:Math.max(t.cy,1)},groupPath:parent.groupPath});
                     });
                 };
                 collectObjects(tree);
@@ -1805,6 +1813,8 @@
                 const objects=[];
                 for(const entry of objectEntries){
                     const node=entry.node, t=entry.t;
+                    const groupAttr=entry.groupPath.length?' data-group-path="'+escapeHtml(entry.groupPath.join('/'))+'"':'';
+                    const groupHandle=entry.groupPath.length?'<div class="ppt-group-move-handle" contenteditable="false" title="拖动整个组合">组</div>':'';
                     const pos='left:'+(t.x/sw*100)+'%;top:'+(t.y/sh*100)+'%;width:'+(t.cx/sw*100)+'%;height:'+(t.cy/sh*100)+'%;z-index:'+(20+objects.length)+';';
                     const nv=node.getElementsByTagNameNS(P,'cNvPr')[0], name=nv?nv.getAttribute('name'):'';
                     if(node.localName==='sp' || node.localName==='cxnSp'){
@@ -1817,20 +1827,20 @@
                         const fillColor=shapeFill ? safeColor(shapeFill) : 'transparent';
                         const shapeStyle='background:'+fillColor+';';
                         if(content.replace(/<[^>]+>/g,'').trim()){
-                            objects.push('<div class="ppt-object ppt-text-object" style="'+pos+shapeStyle+'" data-object-name="'+escapeHtml(name)+'"><div class="ppt-object-move-handle" contenteditable="false" title="拖动文字框">⠿</div><div class="ppt-object-content" contenteditable="true" spellcheck="false">'+content+'</div></div>');
+                            objects.push('<div class="ppt-object ppt-text-object" style="'+pos+shapeStyle+'" data-object-name="'+escapeHtml(name)+'"'+groupAttr+'>'+groupHandle+'<div class="ppt-object-move-handle" contenteditable="false" title="拖动文字框">⠿</div><div class="ppt-object-content" contenteditable="true" spellcheck="false">'+content+'</div></div>');
                         } else if(node.localName==='cxnSp' || geom){
                             const lineWidth=spPr && spPr.getElementsByTagNameNS(A,'ln')[0] ? Math.max(1,Number(spPr.getElementsByTagNameNS(A,'ln')[0].getAttribute('w')||12700)/12700) : 1;
-                            objects.push('<div class="ppt-object ppt-line-object" style="'+pos+'border-top:'+lineWidth+'px solid '+lineColor+';pointer-events:auto;" title="'+escapeHtml(name)+'"></div>');
+                            objects.push('<div class="ppt-object ppt-line-object" style="'+pos+'border-top:'+lineWidth+'px solid '+lineColor+';pointer-events:auto;"'+groupAttr+' title="'+escapeHtml(name)+'">'+groupHandle+'</div>');
                         }
                     } else if(node.localName==='pic'){
                         const blip=node.getElementsByTagNameNS(A,'blip')[0], rid=blip?(blip.getAttributeNS(R,'embed')||blip.getAttribute('r:embed')):'';
                         const src=await resolveImage(entries[i].n,rid);if(!src)continue;
-                        objects.push('<div class="ppt-object ppt-image-object" style="'+pos+'" data-object-name="'+escapeHtml(name)+'"><div class="ppt-object-move-handle" contenteditable="false" title="拖动图片">⠿</div><img src="'+src+'" draggable="false" contenteditable="false" alt="'+escapeHtml(name)+'"></div>');
+                        objects.push('<div class="ppt-object ppt-image-object" style="'+pos+'" data-object-name="'+escapeHtml(name)+'"'+groupAttr+'>'+groupHandle+'<div class="ppt-object-move-handle" contenteditable="false" title="拖动图片">⠿</div><img src="'+src+'" draggable="false" contenteditable="false" alt="'+escapeHtml(name)+'"></div>');
                     } else if(node.localName==='graphicFrame'){
                         const tbl=node.getElementsByTagNameNS(A,'tbl')[0];if(!tbl)continue;
                         let table='<table style="width:100%;height:100%;border-collapse:collapse;">';
                         Array.from(tbl.getElementsByTagNameNS(A,'tr')).forEach(row=>{table+='<tr>';Array.from(row.getElementsByTagNameNS(A,'tc')).forEach(cell=>{table+='<td style="border:1px solid #94a3b8;padding:3px;">'+Array.from(cell.getElementsByTagNameNS(A,'t')).map(x=>escapeHtml(x.textContent)).join('')+'</td>';});table+='</tr>';});table+='</table>';
-                        objects.push('<div class="ppt-object ppt-text-object" style="'+pos+'"><div class="ppt-object-move-handle" contenteditable="false">⠿</div><div class="ppt-object-content" contenteditable="true">'+table+'</div></div>');
+                        objects.push('<div class="ppt-object ppt-text-object" style="'+pos+'"'+groupAttr+'>'+groupHandle+'<div class="ppt-object-move-handle" contenteditable="false">⠿</div><div class="ppt-object-content" contenteditable="true">'+table+'</div></div>');
                     }
                 }
                 const flat = objects.length===1 && topNodes.length===1 && topNodes[0].localName==='pic' && (()=>{const t=transform(topNodes[0]);return t&&t.x<sw*.01&&t.y<sh*.01&&t.cx>sw*.98&&t.cy>sh*.98;})();

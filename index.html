@@ -2134,22 +2134,27 @@
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
             const range = sel.getRangeAt(0);
-            if (!range.collapsed || !whiteboard.contains(range.startContainer)) return;
-            const host = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
-            const ruby = host && host.closest('ruby');
-            if (!ruby) return;
-            const base = Array.from(ruby.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
-            if (!base) return;
-            e.preventDefault();
-            const textNode = document.createTextNode(base.textContent);
-            ruby.replaceWith(textNode);
-            const nr = document.createRange();
-            nr.setStart(textNode, Math.min(range.startOffset, textNode.length));
-            nr.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(nr);
-            // 触发原生输入前不再阻止后续按键；用户可直接继续编辑。
-            saveHistoryImmediate();
+            if (!whiteboard.contains(range.startContainer)) return;
+
+            // 对选区覆盖到的拼音字，先解除注音外壳但保留汉字文本。
+            // 不阻止浏览器本次原生输入/删除，让用户的操作继续作用于已展开的纯文本。
+            const rubies = [];
+            whiteboard.querySelectorAll('ruby').forEach(ruby => {
+                let hit = false;
+                try { hit = range.collapsed
+                    ? ruby.contains(range.startContainer)
+                    : range.intersectsNode(ruby); } catch (err) {}
+                if (hit) rubies.push(ruby);
+            });
+            if (!rubies.length) return;
+
+            rubies.forEach(ruby => {
+                const base = Array.from(ruby.childNodes).find(n =>
+                    n.nodeType === Node.TEXT_NODE && n.textContent.trim()
+                );
+                if (base && ruby.parentNode) ruby.replaceWith(document.createTextNode(base.textContent));
+            });
+            saveHistoryDebounced();
         });
 
         // ====== 边打边注音模式结束 ======

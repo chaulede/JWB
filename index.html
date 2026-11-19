@@ -210,6 +210,15 @@
     /* ===== 修复 : 图片自由缩放包裹层样式 ===== */
     .document-page-canvas { isolation:isolate; }\n    .page-move-handle { opacity:.35; transition:opacity .15s; }\n    .document-page-canvas:hover .page-move-handle { opacity:1; }
     .document-page-annotation { cursor:text; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .ppt-object { position:absolute; box-sizing:border-box; }
+    .ppt-image-object { border:1px solid transparent; }
+    .ppt-image-object:hover,.ppt-text-object:hover { outline:1px dashed #60a5fa; }
+    .ppt-image-object img { width:100%;height:100%;display:block;object-fit:fill;pointer-events:none;user-select:none; }
+    .ppt-text-object { padding:2px;overflow:visible; }
+    .ppt-object-content { width:100%;height:100%;overflow:auto;outline:none;white-space:normal;overflow-wrap:anywhere;line-height:1.2; }
+    .ppt-object-content:focus { outline:1px solid rgba(37,99,235,.55); }
+    .ppt-object-move-handle { position:absolute;left:-2px;top:-16px;z-index:950;display:none;padding:0 5px;border-radius:4px;background:#2563eb;color:#fff;font:12px Arial;line-height:16px;cursor:move;user-select:none; }
+    .ppt-object:hover > .ppt-object-move-handle { display:block; }
     .document-page-annotation:focus { box-shadow:inset 0 0 0 2px rgba(59,130,246,.25); }
     .resizable-img-wrapper {
         display: inline-block;
@@ -1343,6 +1352,26 @@
             pageDragStart = null;
         });
 
+        // PPT 对象独立拖动：文字框与图片均通过左上角手柄移动。
+        let movingPptObject = null, pptObjectDragStart = null;
+        whiteboard.addEventListener('pointerdown', function(e) {
+            const handle=e.target.closest('.ppt-object-move-handle');
+            if(!handle)return;
+            const obj=handle.closest('.ppt-object');if(!obj)return;
+            e.preventDefault();e.stopPropagation();
+            movingPptObject=obj;
+            const tr=obj.style.transform||'';
+            const m=tr.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+            pptObjectDragStart={x:e.clientX,y:e.clientY,dx:m?Number(m[1]):0,dy:m?Number(m[2]):0};
+            handle.setPointerCapture(e.pointerId);
+        });
+        whiteboard.addEventListener('pointermove',function(e){
+            if(!movingPptObject||!pptObjectDragStart)return;
+            movingPptObject.style.transform='translate('+(pptObjectDragStart.dx+e.clientX-pptObjectDragStart.x)+'px,'+(pptObjectDragStart.dy+e.clientY-pptObjectDragStart.y)+'px)';
+        });
+        whiteboard.addEventListener('pointerup',function(){if(movingPptObject)saveHistoryImmediate();movingPptObject=null;pptObjectDragStart=null;});
+        whiteboard.addEventListener('pointercancel',function(){movingPptObject=null;pptObjectDragStart=null;});
+
 
 
         // 粘贴图片功能
@@ -1605,6 +1634,116 @@
             }
         });
 
+        // PPTX 双模式导入：扁平化整页图保留为整页图片；普通幻灯片按 OOXML 坐标拆成可编辑文字框和独立图片。
+        async function renderPptxEditableSlides(arrayBuffer, loadingTextEl) {
+            if (typeof JSZip === 'undefined') throw new Error('JSZip 库未加载。');
+            const zip = await JSZip.loadAsync(arrayBuffer);
+            const parser = new DOMParser();
+            const P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+            const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+            const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+            const pres = parser.parseFromString(await zip.file('ppt/presentation.xml').async('string'),'text/xml');
+            const size = pres.getElementsByTagNameNS(P,'sldSz')[0];
+            const sw = size ? Number(size.getAttribute('cx')) : 12192000;
+            const sh = size ? Number(size.getAttribute('cy')) : 6858000;
+            const ratio = sw/sh;
+            const mediaCache = {};
+            const resolveImage = async (slideNo,rid) => {
+                if (!rid) return '';
+                const relFile = zip.file('ppt/slides/_rels/slide'+slideNo+'.xml.rels');
+                if (!relFile) return '';
+                const relDoc = parser.parseFromString(await relFile.async('string'),'text/xml');
+                const rel = Array.from(relDoc.getElementsByTagName('Relationship')).find(x=>x.getAttribute('Id')===rid);
+                if (!rel) return '';
+                let path = rel.getAttribute('Target') || '';
+                if (/^https?:/i.test(path)) return path;
+                path = path.startsWith('/') ? path.slice(1) : 'ppt/slides/'+path;
+                const stack=[];
+                path.split('/').forEach(part=>{if(!part||part==='.')return;if(part==='..')stack.pop();else stack.push(part);});
+                path=stack.join('/');
+                if (mediaCache[path]) return mediaCache[path];
+                const file=zip.file(path); if(!file)return '';
+                const ext=path.split('.').pop().toLowerCase();
+                const mime={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',svg:'image/svg+xml',webp:'image/webp'}[ext]||'application/octet-stream';
+                mediaCache[path]='data:'+mime+';base64,'+await file.async('base64');
+                return mediaCache[path];
+            };
+            const transform = el => {
+                const x=Array.from(el.getElementsByTagNameNS(A,'xfrm')).find(n=>n.parentElement && n.parentElement.localName==='spPr');
+                if(!x)return null;
+                const off=x.getElementsByTagNameNS(A,'off')[0], ext=x.getElementsByTagNameNS(A,'ext')[0];
+                if(!off||!ext)return null;
+                return {x:+off.getAttribute('x'),y:+off.getAttribute('y'),cx:+ext.getAttribute('cx'),cy:+ext.getAttribute('cy')};
+            };
+            const safeColor = node => {
+                if(!node)return '#222';
+                const c=node.getElementsByTagNameNS(A,'srgbClr')[0];
+                return c?'#'+c.getAttribute('val'):'#222';
+            };
+            const textHtml = shape => {
+                const body=shape.getElementsByTagNameNS(A,'txBody')[0]; if(!body)return '';
+                const paragraphs=Array.from(body.getElementsByTagNameNS(A,'p'));
+                return paragraphs.map(p=>{
+                    const pp=p.getElementsByTagNameNS(A,'pPr')[0], alg=pp?pp.getAttribute('algn'):'';
+                    const align=alg==='ctr'?'center':alg==='r'?'right':alg==='just'?'justify':'left';
+                    let content='';
+                    Array.from(p.childNodes).forEach(run=>{
+                        if(run.nodeType!==1)return;
+                        if(run.localName==='br'){content+='<br>';return;}
+                        if(!['r','fld'].includes(run.localName))return;
+                        const t=run.getElementsByTagNameNS(A,'t')[0]; if(!t)return;
+                        const rp=run.getElementsByTagNameNS(A,'rPr')[0], css=[];
+                        if(rp){
+                            const sz=Number(rp.getAttribute('sz'));if(sz)css.push('font-size:'+Math.max(6,Math.min(100,sz/100))+'pt');
+                            if(rp.getAttribute('b')==='1')css.push('font-weight:bold');
+                            if(rp.getAttribute('i')==='1')css.push('font-style:italic');
+                            const fill=rp.getElementsByTagNameNS(A,'solidFill')[0];if(fill)css.push('color:'+safeColor(fill));
+                        }
+                        content+='<span style="'+css.join(';')+'">'+escapeHtml(t.textContent)+'</span>';
+                    });
+                    if(!content)content=Array.from(p.getElementsByTagNameNS(A,'t')).map(t=>escapeHtml(t.textContent)).join('');
+                    return '<div style="text-align:'+align+';min-height:1em;">'+(content||'<br>')+'</div>';
+                }).join('');
+            };
+            const entries=[];
+            zip.folder('ppt/slides').forEach((path,file)=>{const m=path.match(/^slide(\d+)\.xml$/);if(m&&!file.dir)entries.push({n:+m[1],file});});
+            entries.sort((a,b)=>a.n-b.n);
+            if(!entries.length)throw new Error('未找到幻灯片。');
+            let result='';
+            for(let i=0;i<entries.length;i++){
+                loadingTextEl.innerText='正在保留第 '+(i+1)+' / '+entries.length+' 页的对象位置...';
+                const doc=parser.parseFromString(await entries[i].file.async('string'),'text/xml');
+                const tree=doc.getElementsByTagNameNS(P,'spTree')[0];if(!tree)continue;
+                const nodes=Array.from(tree.children).filter(n=>['sp','pic','graphicFrame'].includes(n.localName));
+                const objects=[];
+                for(const node of nodes){
+                    const t=transform(node);if(!t||!t.cx||!t.cy)continue;
+                    const pos='left:'+(t.x/sw*100)+'%;top:'+(t.y/sh*100)+'%;width:'+(t.cx/sw*100)+'%;height:'+(t.cy/sh*100)+'%;z-index:'+(20+objects.length)+';';
+                    const nv=node.getElementsByTagNameNS(P,'cNvPr')[0], name=nv?nv.getAttribute('name'):'';
+                    if(node.localName==='sp'){
+                        const content=textHtml(node);if(!content.replace(/<[^>]+>/g,'').trim())continue;
+                        objects.push('<div class="ppt-object ppt-text-object" style="'+pos+'" data-object-name="'+escapeHtml(name)+'"><div class="ppt-object-move-handle" contenteditable="false" title="拖动文字框">⠿</div><div class="ppt-object-content" contenteditable="true" spellcheck="false">'+content+'</div></div>');
+                    } else if(node.localName==='pic'){
+                        const blip=node.getElementsByTagNameNS(A,'blip')[0], rid=blip?(blip.getAttributeNS(R,'embed')||blip.getAttribute('r:embed')):'';
+                        const src=await resolveImage(entries[i].n,rid);if(!src)continue;
+                        objects.push('<div class="ppt-object ppt-image-object" style="'+pos+'" data-object-name="'+escapeHtml(name)+'"><div class="ppt-object-move-handle" contenteditable="false" title="拖动图片">⠿</div><img src="'+src+'" draggable="false" contenteditable="false" alt="'+escapeHtml(name)+'"></div>');
+                    } else if(node.localName==='graphicFrame'){
+                        const tbl=node.getElementsByTagNameNS(A,'tbl')[0];if(!tbl)continue;
+                        let table='<table style="width:100%;height:100%;border-collapse:collapse;">';
+                        Array.from(tbl.getElementsByTagNameNS(A,'tr')).forEach(row=>{table+='<tr>';Array.from(row.getElementsByTagNameNS(A,'tc')).forEach(cell=>{table+='<td style="border:1px solid #94a3b8;padding:3px;">'+Array.from(cell.getElementsByTagNameNS(A,'t')).map(x=>escapeHtml(x.textContent)).join('')+'</td>';});table+='</tr>';});table+='</table>';
+                        objects.push('<div class="ppt-object ppt-text-object" style="'+pos+'"><div class="ppt-object-move-handle" contenteditable="false">⠿</div><div class="ppt-object-content" contenteditable="true">'+table+'</div></div>');
+                    }
+                }
+                const flat = objects.length===1 && nodes.length===1 && nodes[0].localName==='pic' && (()=>{const t=transform(nodes[0]);return t&&t.x<sw*.01&&t.y<sh*.01&&t.cx>sw*.98&&t.cy>sh*.98;})();
+                result+='<div class="pptx-import document-page-canvas '+(flat?'ppt-page-flat':'ppt-page-editable')+'" contenteditable="false" style="position:relative;width:min(100%,960px);aspect-ratio:'+ratio+';margin:18px auto;background:#fff;border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.1);overflow:hidden;resize:both;min-width:320px;min-height:180px;">'+
+                    '<div class="page-move-handle" contenteditable="false" title="拖动整页" style="position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:900;padding:2px 10px;background:#2563eb;color:white;border-radius:0 0 6px 6px;font:11px Arial;cursor:move;">↕ 移动页面</div>'+
+                    objects.join('')+
+                    '<div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:10;padding:12px;outline:none;pointer-events:none;"></div>'+
+                    '<div contenteditable="false" style="position:absolute;left:8px;top:6px;z-index:901;font:11px Arial;color:#64748b;background:rgba(255,255,255,.8);padding:2px 5px;">PPT '+(i+1)+'/'+entries.length+(flat?' · 整页图片':' · 独立对象')+'</div></div>';
+            }
+            return result;
+        }
+
         document.getElementById('docFileUpload').addEventListener('change', async function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1694,221 +1833,19 @@
                     const reader = new FileReader();
                     reader.onload = async (e) => {
                         try {
-                            loadingText.innerText = "正在读取 PPT 文件...";
-                            if (typeof JSZip === 'undefined') throw new Error("JSZip 库未加载，无法解析 PPT。请刷新页面重试。");
-                            
-                            const zip = await JSZip.loadAsync(e.target.result);
-                            
-                            loadingText.innerText = "正在提取 PPT 内图片...";
-                            const mediaFiles = {};
-                            const mediaFolder = zip.folder('ppt/media');
-                            if (mediaFolder) {
-                                const mediaEntries = [];
-                                mediaFolder.forEach((relativePath, file) => {
-                                    if (!file.dir) mediaEntries.push({ path: relativePath, file });
-                                });
-                                for (const entry of mediaEntries) {
-                                    try {
-                                        const base64 = await entry.file.async('base64');
-                                        const ext = entry.path.split('.').pop().toLowerCase();
-                                        if (['emf', 'wmf', 'tiff'].includes(ext)) continue; 
-                                        const mime = ext === 'png' ? 'image/png' : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : 'image/png';
-                                        mediaFiles['ppt/media/' + entry.path.replace(/^.*\//, '')] = `data:${mime};base64,${base64}`;
-                                    } catch (imgErr) {}
-                                }
+                            loadingText.innerText = '正在按原始页面布局解析 PPT...';
+                            const html = await renderPptxEditableSlides(e.target.result, loadingText);
+                            if (whiteboard.innerText.trim() && whiteboard.innerHTML !== '<p><br></p>') {
+                                whiteboard.insertAdjacentHTML('beforeend', '<hr style="border:1px dashed #cbd5e1;margin:24px 0;">');
                             }
-
-                            const slideEntries = [];
-                            const slidesFolder = zip.folder('ppt/slides');
-                            if (slidesFolder) {
-                                slidesFolder.forEach((relativePath, file) => {
-                                    const m = relativePath.match(/^slide(\d+)\.xml$/);
-                                    if (m && !file.dir) slideEntries.push({ num: parseInt(m[1]), file });
-                                });
-                            }
-                            slideEntries.sort((a, b) => a.num - b.num);
-                            if (slideEntries.length === 0) throw new Error("未在 PPTX 中找到任何幻灯片内容。");
-
-                            const parser = new DOMParser();
-                            const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main';
-                            let fullHtml = '';
-
-                            for (let i = 0; i < slideEntries.length; i++) {
-                                loadingText.innerText = `正在解析第 ${i + 1} / ${slideEntries.length} 页...`;
-                                await new Promise(resolve => setTimeout(resolve, 10));
-
-                                const slideEntry = slideEntries[i];
-                                const slideXml = await slideEntry.file.async('string');
-                                const xmlDoc = parser.parseFromString(slideXml, 'text/xml');
-
-                                let slideHtml = `<div class="pptx-import" style="margin: 20px auto; padding: 30px; width: 100%; max-width: 900px; min-height: 500px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; display: flex; flex-direction: column;">`;
-                                slideHtml += `<div style="position: absolute; top: 15px; left: 20px; font-size: 12px; color: #94a3b8; font-weight: bold;">第 ${i + 1} 页</div>`;
-
-                                let hasText = false;
-
-                                const shapeNodes = xmlDoc.getElementsByTagNameNS(A_NS, 'sp');
-                                for (let s = 0; s < shapeNodes.length; s++) {
-                                    const shape = shapeNodes[s];
-                                    const txBody = shape.getElementsByTagNameNS(A_NS, 'txBody')[0];
-                                    if (!txBody) continue;
-
-                                    const paragraphs = txBody.getElementsByTagNameNS(A_NS, 'p');
-                                    if (paragraphs.length === 0) continue;
-
-                                    slideHtml += `<div style="margin-bottom: 15px; width: 100%;">`;
-                                    
-                                    for (let p = 0; p < paragraphs.length; p++) {
-                                        const pNode = paragraphs[p];
-                                        const runs = pNode.getElementsByTagNameNS(A_NS, 'r');
-                                        
-                                        let paraHtml = '';
-                                        for (let r = 0; r < runs.length; r++) {
-                                            const run = runs[r];
-                                            const textNode = run.getElementsByTagNameNS(A_NS, 't')[0];
-                                            if (!textNode) continue;
-                                            
-                                            let text = escapeHtml(textNode.textContent);
-                                            if (text.trim()) hasText = true;
-                                            
-                                            const rPr = run.getElementsByTagNameNS(A_NS, 'rPr')[0];
-                                            let fontSize = 18;
-                                            if (rPr) {
-                                                const sz = rPr.getAttribute('sz');
-                                                if (sz) fontSize = parseInt(sz) / 100 * 1.33;
-                                            }
-
-                                            let fontWeight = 'normal';
-                                            if (rPr) {
-                                                const b = rPr.getAttribute('b');
-                                                if (b === '1') fontWeight = 'bold';
-                                            }
-
-                                            paraHtml += `<span style="font-size: ${fontSize}px; font-weight: ${fontWeight}; color: #333; line-height: 1.5;">${text}</span>`;
-                                        }
-                                        
-                                        if (paraHtml) {
-                                            slideHtml += `<p style="margin: 4px 0; text-align: left;">${paraHtml}</p>`;
-                                        }
-                                    }
-                                    slideHtml += `</div>`;
-                                }
-
-                                const tblNodes = xmlDoc.getElementsByTagNameNS(A_NS, 'tbl');
-                                for (let t = 0; t < tblNodes.length; t++) {
-                                    const tbl = tblNodes[t];
-                                    const rows = tbl.getElementsByTagNameNS(A_NS, 'tr');
-                                    if (rows.length === 0) continue;
-                                    
-                                    slideHtml += `<table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 16px; color: #333;">`;
-                                    for (let r = 0; r < rows.length; r++) {
-                                        slideHtml += `<tr>`;
-                                        const cells = rows[r].getElementsByTagNameNS(A_NS, 'tc');
-                                        for (let c = 0; c < cells.length; c++) {
-                                            const cellTexts = cells[c].getElementsByTagNameNS(A_NS, 't');
-                                            let cellText = '';
-                                            for (let ct = 0; ct < cellTexts.length; ct++) {
-                                                cellText += cellTexts[ct].textContent;
-                                            }
-                                            if (cellText.trim()) hasText = true;
-                                            slideHtml += `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">${escapeHtml(cellText)}</td>`;
-                                        }
-                                        slideHtml += `</tr>`;
-                                    }
-                                    slideHtml += `</table>`;
-                                }
-
-                                if (!hasText) {
-                                    const allTexts = xmlDoc.getElementsByTagNameNS(A_NS, 't');
-                                    let fallbackText = '';
-                                    for (let ft = 0; ft < allTexts.length; ft++) {
-                                        fallbackText += allTexts[ft].textContent + ' ';
-                                    }
-                                    if (fallbackText.trim()) {
-                                        slideHtml += `<div style="font-size: 18px; line-height: 1.6; color: #333;">${escapeHtml(fallbackText)}</div>`;
-                                    } else {
-                                        slideHtml += `<div style="font-size: 16px; color: #94a3b8; font-style: italic; margin-top: 20px;">（此页可能没有文字，或是纯图片图表）</div>`;
-                                    }
-                                }
-
-                                const relPath = `ppt/slides/_rels/slide${slideEntry.num}.xml.rels`;
-                                let relsXml = null;
-                                const relFile = zip.file(relPath);
-                                if (relFile) { try { relsXml = await relFile.async('string'); } catch (_) { relsXml = null; } }
-                                
-                                const imgMap = {}; 
-                                if (relsXml) {
-                                    const relDoc = parser.parseFromString(relsXml, 'text/xml');
-                                    const rels = relDoc.getElementsByTagName('Relationship');
-                                    for (let r = 0; r < rels.length; r++) {
-                                        const rel = rels[r];
-                                        const type = rel.getAttribute('Type') || '';
-                                        const target = rel.getAttribute('Target') || '';
-                                        const id = rel.getAttribute('Id');
-                                        if (type.indexOf('/image') !== -1) {
-                                            let mp = target.replace(/^\.\.\//, '');
-                                            imgMap[id] = 'ppt/' + mp;
-                                        }
-                                    }
-                                }
-
-                                const blipNodes = xmlDoc.getElementsByTagNameNS(A_NS, 'blip');
-                                const foundImgs = [];
-                                for (let b = 0; b < blipNodes.length; b++) {
-                                    const blip = blipNodes[b];
-                                    let embedId = null;
-                                    for (let attrIdx = 0; attrIdx < blip.attributes.length; attrIdx++) {
-                                        const attr = blip.attributes[attrIdx];
-                                        if (attr.localName === 'embed') { embedId = attr.value; break; }
-                                    }
-                                    if (embedId && imgMap[embedId] && mediaFiles[imgMap[embedId]]) {
-                                        foundImgs.push(mediaFiles[imgMap[embedId]]);
-                                    }
-                                }
-
-                                // 完整页面图片型 PPT：按原幻灯片比例显示整页，不缩到页面底部。
-                                if (foundImgs.length === 1) {
-                                    const presXml = await zip.file('ppt/presentation.xml').async('string');
-                                    const presDoc = parser.parseFromString(presXml, 'text/xml');
-                                    const sldSz = presDoc.getElementsByTagNameNS('http://schemas.openxmlformats.org/presentationml/2006/main', 'sldSz')[0];
-                                    const sw = sldSz ? Number(sldSz.getAttribute('cx')) : 16;
-                                    const sh = sldSz ? Number(sldSz.getAttribute('cy')) : 9;
-                                    slideHtml = `<div class="pptx-import document-page-canvas" contenteditable="true" style="position:relative;width:min(100%,960px);aspect-ratio:${sw / sh};margin:18px auto;padding:0;min-height:0;max-width:960px;background:#fff;border:1px solid #cbd5e1;border-radius:5px;box-shadow:0 3px 12px rgba(15,23,42,.10);overflow:hidden;resize:both;min-width:320px;min-height:180px;">
-                                        <div class="page-move-handle" contenteditable="false" title="拖动移动整页" style="position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:5;padding:2px 10px;background:rgba(37,99,235,.88);color:white;border-radius:0 0 6px 6px;font:11px Arial;cursor:move;user-select:none;">↕ 移动页面</div>
-                                        <img src="${foundImgs[0]}" alt="PPT 第 ${i + 1} 页完整页面" draggable="false" contenteditable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;user-select:none;pointer-events:none;">
-                                        <div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:2;padding:12px;outline:none;"></div>
-                                        <div contenteditable="false" style="position:absolute;left:8px;top:6px;z-index:3;font:11px Arial;color:#64748b;background:rgba(255,255,255,.8);padding:2px 5px;border-radius:3px;">PPT · ${i + 1}/${slideEntries.length}</div>
-                                    </div>`;
-                                    fullHtml += slideHtml;
-                                    continue;
-                                }
-
-                                if (foundImgs.length > 0) {
-                                    slideHtml += `<div style="margin-top: auto; padding-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">`;
-                                    foundImgs.forEach((src) => {
-                                        slideHtml += `<img src="${src}" style="max-height: 250px; max-width: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">`;
-                                    });
-                                    slideHtml += `</div>`;
-                                }
-
-                                slideHtml += `</div>`;
-                                fullHtml += slideHtml;
-                            }
-
-                            loadingText.innerText = "正在渲染到白板...";
-                            if (whiteboard.innerText.trim() !== '' && whiteboard.innerHTML !== '<p><br></p>') {
-                                fullHtml = `<hr style="border: 1px dashed #cbd5e1; margin: 30px 0;"><br>` + fullHtml;
-                            }
-                            whiteboard.innerHTML += fullHtml;
+                            whiteboard.insertAdjacentHTML('beforeend', html);
                             saveHistoryImmediate();
-                            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-                            setTimeout(resizeCanvas, 100);
-                            loadingOverlay.classList.add('hidden');
-                            
+                            scrollContainer.scrollTo({top:scrollContainer.scrollHeight,behavior:'smooth'});
+                            setTimeout(resizeCanvas,120);
                         } catch (err) {
-                            console.error("PPT解析崩溃:", err);
-                            alert("PPT 解析失败！\n具体错误：" + err.message);
-                            loadingOverlay.classList.add('hidden');
-                        }
+                            console.error('PPT 导入失败:',err);
+                            alert('PPT 导入失败：'+err.message);
+                        } finally { loadingOverlay.classList.add('hidden'); }
                     };
                     reader.readAsArrayBuffer(file);
                 } else {

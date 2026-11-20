@@ -305,7 +305,9 @@
         display: block;
     }
     
-    ruby { ruby-align: center; ruby-position: over; margin: 0 1px; white-space: nowrap; }
+    ruby { ruby-align: center; ruby-position: over; margin: 0 1px; white-space: nowrap; user-select: text; -webkit-user-select: text; }
+    /* 选词时仅选择汉字底字，避免拼音 rt 参与鼠标命中与文本选区 */
+    ruby rt { user-select: none; -webkit-user-select: none; pointer-events: none; }
     rt { font-size: 0.5em !important; color: #1d4ed8 !important; font-family: 'Arial', sans-serif !important; font-weight: bold !important; line-height: 1.2; }
     
         .english-line { display: block !important; font-size: 0.85em !important; color: #64748b; font-family: 'Arial', sans-serif; font-style: italic; border-left: 3px solid #cbd5e1; padding-left: 8px; margin: 8px 0 20px 0 !important; line-height: 1.4 !important; width: 100%; }
@@ -1694,7 +1696,7 @@
                 const file=zip.file(path); if(!file)return '';
                 const ext=path.split('.').pop().toLowerCase();
                 const mime={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',svg:'image/svg+xml',webp:'image/webp'}[ext]||'application/octet-stream';
-                mediaCache[path]='data:'+mime+';base64,'+await file.async('base64');
+                mediaCache[path]=URL.createObjectURL(new Blob([await file.async('uint8array')],{type:mime}));
                 return mediaCache[path];
             };
             const transform = el => {
@@ -1704,13 +1706,30 @@
                 if(!off||!ext)return null;
                 return {x:+off.getAttribute('x'),y:+off.getAttribute('y'),cx:+ext.getAttribute('cx'),cy:+ext.getAttribute('cy'),rotation:Number(x.getAttribute('rot')||0)/60000,flipH:x.getAttribute('flipH')==='1',flipV:x.getAttribute('flipV')==='1'};
             };
+            const themeColors = {};
+            try {
+                const tf = zip.file('ppt/theme/theme1.xml');
+                if (tf) {
+                    const td = parser.parseFromString(await tf.async('string'),'text/xml');
+                    const cs = td.getElementsByTagNameNS(A,'clrScheme')[0];
+                    if (cs) Array.from(cs.children).forEach(c => {
+                        const v = c.firstElementChild; if (!v) return;
+                        themeColors[c.localName] = v.localName==='srgbClr' ? v.getAttribute('val') : (v.getAttribute('lastClr') || '000000');
+                    });
+                }
+            } catch(themeErr) { console.warn('主题色读取失败', themeErr); }
+            const schemeMap = {tx1:'dk1',bg1:'lt1',tx2:'dk2',bg2:'lt2'};
             const safeColor = node => {
                 if(!node)return '#222';
                 const c=node.getElementsByTagNameNS(A,'srgbClr')[0];
-                return c?'#'+c.getAttribute('val'):'#222';
+                if(c)return '#'+c.getAttribute('val');
+                const sc=node.getElementsByTagNameNS(A,'schemeClr')[0];
+                if(sc){ const v=sc.getAttribute('val'); const key=schemeMap[v]||v; if(themeColors[key])return '#'+themeColors[key]; }
+                return '#222';
             };
+            const kid = (el,name) => el ? Array.from(el.children).find(c=>c.localName===name) : null;
             const textHtml = shape => {
-                const body=shape.getElementsByTagNameNS(A,'txBody')[0]; if(!body)return '';
+                const body=shape.getElementsByTagNameNS(P,'txBody')[0]||shape.getElementsByTagNameNS(A,'txBody')[0]; if(!body)return '';
                 const bodyPr=body.getElementsByTagNameNS(A,'bodyPr')[0];
                 const anchor=bodyPr?bodyPr.getAttribute('anchor'):'';
                 const vertical=anchor==='ctr'?'justify-content:center;':anchor==='b'?'justify-content:flex-end;':'justify-content:flex-start;';
@@ -1721,7 +1740,7 @@
                     b:Number(bodyPr.getAttribute('bIns')||45720)/sh*100
                 }:null;
                 const paragraphs=Array.from(body.getElementsByTagNameNS(A,'p'));
-                return '<div style="width:100%;height:100%;display:flex;flex-direction:column;'+vertical+';box-sizing:border-box;'+(insets?'padding:'+insets.t+'% '+insets.r+'% '+insets.b+'% '+insets.l+'%;':'')+'">'+paragraphs.map(p=>{
+                return '<div style="width:100%;height:100%;display:flex;flex-direction:column;font-size:'+(18/(sw/12700)*100).toFixed(4)+'cqw;'+vertical+';box-sizing:border-box;'+(insets?'padding:'+insets.t+'% '+insets.r+'% '+insets.b+'% '+insets.l+'%;':'')+'">'+paragraphs.map(p=>{
                     const pp=p.getElementsByTagNameNS(A,'pPr')[0], alg=pp?pp.getAttribute('algn'):'';
                     const align=alg==='ctr'?'center':alg==='r'?'right':alg==='just'?'justify':'left';
                     const defaultRun=pp?pp.getElementsByTagNameNS(A,'defRPr')[0]:null;
@@ -1736,7 +1755,7 @@
                         const t=run.getElementsByTagNameNS(A,'t')[0]; if(!t)return;
                         const rp=run.getElementsByTagNameNS(A,'rPr')[0]||defaultRun, css=[];
                         if(rp){
-                            const sz=Number(rp.getAttribute('sz'));if(sz)css.push('font-size:'+Math.max(6,Math.min(100,sz/100))+'pt');
+                            const sz=Number(rp.getAttribute('sz'));if(sz)css.push('font-size:'+(sz/100/(sw/12700)*100).toFixed(4)+'cqw');
                             if(rp.getAttribute('b')==='1')css.push('font-weight:bold');
                             if(rp.getAttribute('i')==='1')css.push('font-style:italic');
                             if(rp.getAttribute('u') && rp.getAttribute('u')!=='none')css.push('text-decoration:underline');
@@ -1754,7 +1773,6 @@
             const entries=[];
             zip.folder('ppt/slides').forEach((path,file)=>{const m=path.match(/^slide(\d+)\.xml$/);if(m&&!file.dir)entries.push({n:+m[1],path:'ppt/slides/'+path,file});});
             entries.sort((a,b)=>a.n-b.n);
-            // 按 presentation.xml 中的 sldId 顺序读取，尊重 PowerPoint 中用户调整过的页面顺序。
             try {
                 const relFile=zip.file('ppt/_rels/presentation.xml.rels');
                 const sldList=pres.getElementsByTagNameNS(P,'sldIdLst')[0];
@@ -1776,11 +1794,11 @@
                     });
                     if(ordered.length===entries.length)entries.splice(0,entries.length,...ordered);
                 }
-            } catch(orderError) { console.warn('PPT 页面顺序读取失败，使用文件顺序：',orderError); }
-            if(!entries.length)throw new Error('未找到幻灯片。');
+            } catch(orderError) { console.warn(orderError); }
             let result='';
+            if(!entries.length)throw new Error('未找到幻灯片。');
             for(let i=0;i<entries.length;i++){
-                loadingTextEl.innerText='正在保留第 '+(i+1)+' / '+entries.length+' 页的对象位置...';
+                if(loadingTextEl&&loadingTextEl.innerText!==undefined)loadingTextEl.innerText='正在保留第 '+(i+1)+' / '+entries.length+' 页的对象位置...';
                 const doc=parser.parseFromString(await entries[i].file.async('string'),'text/xml');
                 const bgNode=doc.getElementsByTagNameNS(P,'bg')[0];
                 const bgSolid=bgNode?bgNode.getElementsByTagNameNS(A,'srgbClr')[0]:null;
@@ -1788,7 +1806,6 @@
                 const tree=doc.getElementsByTagNameNS(P,'spTree')[0];if(!tree)continue;
                 const topNodes=Array.from(tree.children).filter(n=>['sp','pic','graphicFrame','grpSp','cxnSp'].includes(n.localName));
                 const objectEntries=[];
-                // 递归展开组合对象，并将组内坐标映射回整张幻灯片坐标。
                 const collectObjects=(container,parent={sx:1,sy:1,tx:0,ty:0,groupPath:[]})=>{
                     Array.from(container.children).forEach(child=>{
                         if(child.localName==='grpSp'){
@@ -1811,7 +1828,6 @@
                     });
                 };
                 collectObjects(tree);
-                const nodes=objectEntries.map(x=>x.node);
                 const objects=[];
                 for(const entry of objectEntries){
                     const node=entry.node, t=entry.t;
@@ -1821,18 +1837,22 @@
                     const nv=node.getElementsByTagNameNS(P,'cNvPr')[0], name=nv?nv.getAttribute('name'):'';
                     if(node.localName==='sp' || node.localName==='cxnSp'){
                         const content=textHtml(node);
-                        const spPr=node.getElementsByTagNameNS(A,'spPr')[0] || node.getElementsByTagNameNS(A,'cxnSpPr')[0];
-                        const solid=spPr ? spPr.getElementsByTagNameNS(A,'solidFill')[0] : null;
-                        const lineColor=safeColor(solid);
-                        const geom=spPr ? spPr.getElementsByTagNameNS(A,'prstGeom')[0] : null;
-                        const shapeFill=spPr ? spPr.getElementsByTagNameNS(A,'solidFill')[0] : null;
-                        const fillColor=shapeFill ? safeColor(shapeFill) : 'transparent';
+                        const spPr=kid(node,'spPr');
+                        const fillNode=kid(spPr,'solidFill');
+                        const lnNode=kid(spPr,'ln');
+                        const lnFill=kid(lnNode,'solidFill');
+                        const lineColor=safeColor(lnFill||fillNode);
+                        const geom=kid(spPr,'prstGeom');
+                        const fillColor=fillNode ? safeColor(fillNode) : 'transparent';
+                        const lineWidth=lnNode ? Math.max(1,Number(lnNode.getAttribute('w')||12700)/12700) : 1;
                         const shapeStyle='background:'+fillColor+';';
                         if(content.replace(/<[^>]+>/g,'').trim()){
                             objects.push('<div class="ppt-object ppt-text-object" style="'+pos+shapeStyle+'" data-object-name="'+escapeHtml(name)+'"'+groupAttr+'>'+groupHandle+'<div class="ppt-object-move-handle" contenteditable="false" title="拖动文字框">⠿</div><div class="ppt-object-content" contenteditable="true" spellcheck="false">'+content+'</div></div>');
-                        } else if(node.localName==='cxnSp' || geom){
-                            const lineWidth=spPr && spPr.getElementsByTagNameNS(A,'ln')[0] ? Math.max(1,Number(spPr.getElementsByTagNameNS(A,'ln')[0].getAttribute('w')||12700)/12700) : 1;
+                        } else if(node.localName==='cxnSp'){
                             objects.push('<div class="ppt-object ppt-line-object" style="'+pos+'border-top:'+lineWidth+'px solid '+lineColor+';pointer-events:auto;"'+groupAttr+' title="'+escapeHtml(name)+'">'+groupHandle+'</div>');
+                        } else if(geom && (fillNode || lnFill)){
+                            const radius=geom.getAttribute('prst')==='roundRect'?'border-radius:12px;':(geom.getAttribute('prst')==='ellipse'?'border-radius:50%;':'');
+                            objects.push('<div class="ppt-object ppt-line-object" style="'+pos+'background:'+fillColor+';'+(lnFill?'border:'+lineWidth+'px solid '+lineColor+';':'')+radius+'pointer-events:none;"'+groupAttr+' title="'+escapeHtml(name)+'">'+groupHandle+'</div>');
                         }
                     } else if(node.localName==='pic'){
                         const blip=node.getElementsByTagNameNS(A,'blip')[0], rid=blip?(blip.getAttributeNS(R,'embed')||blip.getAttribute('r:embed')):'';
@@ -1854,7 +1874,7 @@
                 const flatContent = flat
                     ? '<div class="ppt-flat-layout" contenteditable="false"><div class="ppt-flat-image-area">'+objects.join('')+'</div><div class="ppt-flat-notes-area"><div class="ppt-flat-notes-title" contenteditable="false">📝 课堂讲解 / 批注</div><div class="ppt-flat-notes-editor" contenteditable="true" spellcheck="false" data-placeholder="在这里输入讲解内容、重点提示或课堂备注……"></div></div></div>'
                     : objects.join('');
-                result+='<div class="pptx-import document-page-canvas '+(flat?'ppt-page-flat':'ppt-page-editable')+'" contenteditable="false" style="position:relative;width:min(100%,960px);aspect-ratio:'+ratio+';margin:18px auto;background:'+slideBackground+';border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.1);overflow:hidden;resize:both;min-width:420px;min-height:240px;">'+
+                result+='<div class="pptx-import document-page-canvas '+(flat?'ppt-page-flat':'ppt-page-editable')+'" contenteditable="false" style="position:relative;display:block;flex:none;box-sizing:border-box;container-type:inline-size;width:960px;max-width:calc(100% - 40px);min-width:0;height:auto;aspect-ratio:'+ratio+';margin:18px auto;background:'+slideBackground+';border:1px solid #cbd5e1;box-shadow:0 3px 12px rgba(15,23,42,.1);overflow:hidden;resize:none;">'+
                     '<div class="page-move-handle" contenteditable="false" title="拖动整页" style="position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:900;padding:2px 10px;background:#2563eb;color:white;border-radius:0 0 6px 6px;font:11px Arial;cursor:move;">↕ 移动页面</div>'+
                     flatContent+
                     (flat?'':'<div class="document-page-annotation" contenteditable="true" spellcheck="false" style="position:absolute;inset:0;z-index:10;padding:12px;outline:none;pointer-events:auto;"></div>')+
@@ -1863,7 +1883,7 @@
             return result;
         }
 
-        document.getElementById('docFileUpload').addEventListener('change', async function(event) {
+document.getElementById('docFileUpload').addEventListener('change', async function(event) {
             const file = event.target.files[0];
             if (!file) return;
 
@@ -2255,7 +2275,8 @@
         });
         // 编辑已注音文字时，先解除光标所在汉字的 ruby 包装，防止新字进入拼音标注层。
         whiteboard.addEventListener('beforeinput', function(e) {
-            if (!/^insert|^delete/.test(e.inputType || '')) return;
+            // 仅在输入新文字时解除 ruby；删除操作保留 DOM/选区结构，避免退格前改写选区造成误删整行。
+            if (!/^insert/.test(e.inputType || '')) return;
             const sel = window.getSelection();
             if (!sel || !sel.rangeCount) return;
             const range = sel.getRangeAt(0);
@@ -2897,7 +2918,16 @@
             whiteboard.querySelectorAll('ruby').forEach(ruby => {
                 const base = Array.from(ruby.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
                 if (!base) return;
-                try { if (range.intersectsNode(base)) targets.push({ node: ruby, text: base.textContent }); } catch (e) {}
+                // 选区必须与 ruby 底字文本节点实际相交，忽略拼音 rt 及仅擦过容器边缘的选区。
+                try {
+                    if (range.intersectsNode(base)) {
+                        const probe = document.createRange();
+                        probe.selectNode(base);
+                        const overlap = range.compareBoundaryPoints(Range.END_TO_START, probe) > 0 &&
+                                       range.compareBoundaryPoints(Range.START_TO_END, probe) < 0;
+                        if (overlap) targets.push({ node: ruby, text: base.textContent });
+                    }
+                } catch (e) {}
             });
             // 兼容旧版拼音表格格式
             whiteboard.querySelectorAll('.pinyin-inline-table').forEach(table => {
@@ -2943,8 +2973,10 @@
             } else {
                 const wrapper = document.createElement('span');
                 wrapper.className = 'core-vocab';
-                wrapper.textContent = selectedText;
-                range.deleteContents();
+                // 保留选区内部原有 DOM（尤其是 ruby/rt 拼音结构），不要用 textContent 重建。
+                // textContent 会丢失 ruby 结构，导致核心词汇标注后拼音错位或消失。
+                const selectedFragment = range.extractContents();
+                wrapper.appendChild(selectedFragment);
                 range.insertNode(wrapper);
                 const newRange = document.createRange();
                 newRange.setStartAfter(wrapper);
@@ -3981,6 +4013,562 @@ ${corpus || '（无课文，请根据词汇编写简单句子）'}
         
         alert('✅ 已清除白板上的 PPT 内容。');
     };
+</script>
+<!-- ============================================================
+  白板补丁 v1
+  用法：把本文件全部内容，粘贴到你主文件【最后一个 </script> 之后、</body> 之前】。
+  功能：① 修复拼音文字中间加字出错  ② 精准选词/点击去拼音  ③ 课堂演示模式(PPT/PDF 翻页+画笔)
+============================================================ -->
+<style id="wbPatchStyle">
+/* —— 拼音层不可选、不可点：光标不会再进入拼音里 —— */
+ruby rt { user-select: none; -webkit-user-select: none; pointer-events: none; }
+#whiteboardContent.eraser-on ruby { cursor: pointer; }
+#whiteboardContent.eraser-on ruby:hover { background: #fecaca; border-radius: 3px; }
+
+/* —— 页面笔迹层 —— */
+.page-ink { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 850; pointer-events: none; overflow: hidden; }
+#whiteboardContent.ink-on .page-ink { pointer-events: auto; touch-action: none; cursor: crosshair; }
+#whiteboardScrollContainer.demo-lock { overflow: hidden !important; }
+
+/* —— 演示控制条 —— */
+#demoBar { display: none; position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 120;
+  flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; max-width: 96vw;
+  background: rgba(255,255,255,.97); border: 1px solid #cbd5e1; border-radius: 12px; padding: 8px 12px;
+  box-shadow: 0 8px 24px rgba(15,23,42,.18); font: 13px 'PingFang SC','Microsoft YaHei',sans-serif; color: #334155; }
+#demoBar.on { display: flex; }
+#demoBar .db { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f1f5f9; cursor: pointer; font-weight: 600; font-size: 13px; }
+#demoBar .db:hover { background: #e2e8f0; }
+#demoBar .db.active { background: #3b82f6; color: #fff; border-color: #2563eb; }
+#demoBar .dsep { width: 1px; height: 22px; background: #cbd5e1; margin: 0 4px; }
+#demoBar .dc { display: inline-block; width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; vertical-align: middle; margin: 0 2px; }
+#demoBar .dc.active { border-color: #0f172a; transform: scale(1.15); }
+#laserDot { position: fixed; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; pointer-events: none; z-index: 130; display: none;
+  background: radial-gradient(circle, #ff2d2d 0%, rgba(255,45,45,.55) 45%, rgba(255,45,45,0) 72%); }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const ZW = '\u200B';
+  const $ = id => document.getElementById(id);
+  const wb = $('whiteboardContent');
+  const scrollC = $('whiteboardScrollContainer');
+  if (!wb || !scrollC) return;
+
+  const saveHist = () => { try { if (typeof window.__wbSaveHistory === 'function') window.__wbSaveHistory(); } catch (e) {} };
+  const CJK = /[\u3400-\u9fff]/;
+  const elOf = n => n ? (n.nodeType === 1 ? n : n.parentElement) : null;
+  const isZW = n => n && n.nodeType === 3 && n.nodeValue.replace(/\u200B/g, '') === '';
+  const baseTextOf = ruby => { for (const c of ruby.childNodes) if (c.nodeType === 3 && c.nodeValue.trim()) return c; return null; };
+
+  /* =========================================================
+     A. 修复：在已注音文字中间加字
+        光标一旦落入 <ruby>/<rt> 内部，立即挪到字的前/后（零宽空格锚点）
+  ========================================================= */
+  let composing = false;
+  function setCaret(node, off) {
+    const r = document.createRange();
+    r.setStart(node, off); r.collapse(true);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  function normalizeCaret() {
+    const sel = getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed) return;
+    const n = sel.anchorNode;
+    if (!n || !wb.contains(n)) return;
+    const el = elOf(n);
+    const ruby = el && el.closest('ruby');
+    if (!ruby || !wb.contains(ruby)) return;
+    const inRt = !!el.closest('rt');
+    const before = !inRt && sel.anchorOffset === 0;
+    const parent = ruby.parentNode;
+    if (before) {
+      const p = ruby.previousSibling;
+      if (p && p.nodeType === 3) setCaret(p, p.nodeValue.length);
+      else { const z = document.createTextNode(ZW); parent.insertBefore(z, ruby); setCaret(z, 1); }
+    } else {
+      const nx = ruby.nextSibling;
+      if (nx && nx.nodeType === 3 && nx.nodeValue.charAt(0) === ZW) setCaret(nx, 1);
+      else { const z = document.createTextNode(ZW); parent.insertBefore(z, nx); setCaret(z, 1); }
+    }
+  }
+  wb.addEventListener('compositionstart', () => { normalizeCaret(); composing = true; }, true);
+  wb.addEventListener('compositionend', () => { composing = false; }, true);
+  document.addEventListener('selectionchange', () => { if (!composing) normalizeCaret(); });
+
+  // 注音文字的自定义鼠标选区：使用鼠标坐标映射到底字，而不依赖浏览器
+  // 对 ruby/rt 的原生 hit-testing。只在起点位于 ruby 时接管拖选，普通文本仍原生选择。
+  function pointAtXY(x, y) {
+    let node = null, offset = 0;
+    if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(x, y);
+      if (pos) { node = pos.offsetNode; offset = pos.offset; }
+    } else if (document.caretRangeFromPoint) {
+      const r = document.caretRangeFromPoint(x, y);
+      if (r) { node = r.startContainer; offset = r.startOffset; }
+    }
+    if (!node || !wb.contains(node)) return null;
+    const el = node.nodeType === 1 ? node : node.parentElement;
+    const ru = el && el.closest && el.closest('ruby');
+    if (ru && wb.contains(ru)) {
+      const base = baseTextOf(ru);
+      if (base) {
+        // 点击在拼音层/ ruby 外层时，根据底字矩形将左右半区映射到字前/字后。
+        if (node !== base || (el && el.closest('rt'))) {
+          const rect = ru.getBoundingClientRect();
+          const mid = rect.left + rect.width / 2;
+          return { node: base, offset: x < mid ? 0 : base.nodeValue.length };
+        }
+        return { node: base, offset: Math.max(0, Math.min(offset, base.nodeValue.length)) };
+      }
+    }
+    return { node, offset };
+  }
+  let rubyDrag = null;
+  wb.addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const target = e.target;
+    if (!(target && target.closest && target.closest('ruby'))) return;
+    const pt = pointAtXY(e.clientX, e.clientY);
+    if (!pt) return;
+    rubyDrag = { anchor: pt, x: e.clientX, y: e.clientY, moved: false };
+    e.preventDefault();
+    const sel = getSelection();
+    const r = document.createRange(); r.setStart(pt.node, pt.offset); r.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r);
+  }, true);
+  document.addEventListener('mousemove', e => {
+    if (!rubyDrag || !(e.buttons & 1)) return;
+    if (Math.abs(e.clientX-rubyDrag.x)+Math.abs(e.clientY-rubyDrag.y) > 2) rubyDrag.moved = true;
+    if (!rubyDrag.moved) return;
+    const pt = pointAtXY(e.clientX, e.clientY);
+    if (!pt) return;
+    try {
+      const r = document.createRange();
+      const a = rubyDrag.anchor, b = pt;
+      const cmp = a.node === b.node ? a.offset <= b.offset : (() => {
+        const t = document.createRange(); t.setStart(a.node,a.offset); t.setEnd(b.node,b.offset);
+        return !t.collapsed;
+      })();
+      if (cmp) { r.setStart(a.node,a.offset); r.setEnd(b.node,b.offset); }
+      else { r.setStart(b.node,b.offset); r.setEnd(a.node,a.offset); }
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    } catch (_) {}
+  }, true);
+  document.addEventListener('mouseup', () => { rubyDrag = null; }, true);
+
+  // 退格：光标紧跟在“字+拼音”后面时，整体删除这个字
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Backspace' || e.isComposing || e.keyCode === 229) return;
+    if (!(e.target === wb || (e.target.closest && wb.contains(e.target)))) return;
+    const sel = getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed) return;
+    const r = sel.getRangeAt(0);
+    const node = r.startContainer, off = r.startOffset;
+    let prev = null;
+    if (node.nodeType === 3) {
+      if (node.nodeValue.slice(0, off).replace(/\u200B/g, '') !== '') return;
+      prev = node.previousSibling;
+      while (isZW(prev)) prev = prev.previousSibling;
+    } else {
+      prev = node.childNodes[off - 1] || null;
+    }
+    if (prev && prev.nodeType === 1 && prev.tagName === 'RUBY') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      prev.remove();
+      try { sel.collapse(node, off); } catch (_) {}
+      saveHist();
+    }
+  }, true);
+
+  /* =========================================================
+     B. 精准选词 / 去拼音 / 加拼音
+  ========================================================= */
+  function selectedRubies(range) {
+    const out = [];
+    wb.querySelectorAll('ruby').forEach(ru => {
+      const base = baseTextOf(ru);
+      if (!base) return;
+      try {
+        if (range.intersectsNode(base)) {
+          const s = base === range.startContainer ? range.startOffset : 0;
+          const e = base === range.endContainer ? range.endOffset : base.nodeValue.length;
+          if (e > s) out.push(ru);          // 必须真正选中了至少一个字，只是“碰到边界”不算
+        }
+      } catch (_) {}
+    });
+    return out;
+  }
+  function unwrap(list) {
+    const nodes = [];
+    list.forEach(ru => {
+      const base = baseTextOf(ru);
+      if (!base || !ru.parentNode) return;
+      const t = document.createTextNode(base.nodeValue);
+      ru.replaceWith(t);
+      nodes.push(t);
+    });
+    return nodes;
+  }
+  function buildFrag(text) {
+    const frag = document.createDocumentFragment();
+    const chars = Array.from(text);
+    let pys = null;
+    try {
+      const a = window.pinyinPro.pinyin(text, { toneType: 'symbol', type: 'array' });
+      if (Array.isArray(a) && a.length === chars.length) pys = a;
+    } catch (_) {}
+    let buf = '';
+    chars.forEach((ch, i) => {
+      if (CJK.test(ch)) {
+        if (buf) { frag.appendChild(document.createTextNode(buf)); buf = ''; }
+        let py = '';
+        try { py = pys ? pys[i] : window.pinyinPro.pinyin(ch, { toneType: 'symbol' }); } catch (_) {}
+        const ru = document.createElement('ruby');
+        ru.appendChild(document.createTextNode(ch));
+        const rt = document.createElement('rt'); rt.textContent = py;
+        ru.appendChild(rt); frag.appendChild(ru);
+      } else buf += ch;
+    });
+    if (buf) frag.appendChild(document.createTextNode(buf));
+    return frag;
+  }
+  function addPinyin(range) {
+    const root = range.commonAncestorContainer.nodeType === 3 ? range.commonAncestorContainer.parentNode : range.commonAncestorContainer;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const parts = []; let n;
+    while ((n = w.nextNode())) {
+      if (!range.intersectsNode(n)) continue;
+      const pe = n.parentElement;
+      if (!pe || pe.closest('rt,ruby,.english-line,.pinyin-inline-table')) continue;
+      const s = n === range.startContainer ? range.startOffset : 0;
+      const e = n === range.endContainer ? range.endOffset : n.nodeValue.length;
+      if (e > s && CJK.test(n.nodeValue.slice(s, e))) parts.push({ n, s, e });
+    }
+    if (!parts.length) { alert('选中的内容里没有汉字！'); return; }
+    saveHist();
+    let first = null, last = null;
+    parts.reverse().forEach(({ n, s, e }) => {
+      let t = n;
+      if (e < t.nodeValue.length) t.splitText(e);
+      if (s > 0) t = t.splitText(s);
+      const frag = buildFrag(t.nodeValue.replace(/\u200B/g, ''));
+      const f = frag.firstChild, l = frag.lastChild;
+      t.parentNode.replaceChild(frag, t);
+      if (!last) last = l;
+      first = f;
+    });
+    if (first && last) {
+      const r = document.createRange(); r.setStartBefore(first); r.setEndAfter(last);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    }
+    saveHist();
+  }
+
+  // 接管「✨拼音」按钮（捕获阶段，优先于原有逻辑；没选中文字时仍走原来的提示）
+  document.addEventListener('click', e => {
+    const t = e.target;
+    if (!t.closest || !t.closest('#btnTogglePinyin')) return;
+    const sel = getSelection();
+    if (!sel || !sel.rangeCount || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    if (!wb.contains(range.commonAncestorContainer)) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    const hit = selectedRubies(range);
+    if (hit.length) {
+      saveHist();
+      const nodes = unwrap(hit);
+      if (nodes.length) {
+        const r = document.createRange();
+        r.setStartBefore(nodes[0]); r.setEndAfter(nodes[nodes.length - 1]);
+        sel.removeAllRanges(); sel.addRange(r);
+      }
+      saveHist();
+    } else {
+      addPinyin(range);
+    }
+  }, true);
+
+  // 取一个字所在的“词”（连续的注音字 + 中文分词）
+  function nearRuby(node, dir) {
+    let n = dir < 0 ? node.previousSibling : node.nextSibling;
+    while (isZW(n)) n = dir < 0 ? n.previousSibling : n.nextSibling;
+    return n && n.nodeType === 1 && n.tagName === 'RUBY' ? n : null;
+  }
+  function wordRun(ru) {
+    const left = [], right = [];
+    let n = ru; while ((n = nearRuby(n, -1))) left.unshift(n);
+    n = ru; while ((n = nearRuby(n, 1))) right.push(n);
+    const run = [...left, ru, ...right];
+    const texts = run.map(r => { const b = baseTextOf(r); return b ? b.nodeValue : ''; });
+    const starts = []; let acc = 0;
+    texts.forEach(t => { starts.push(acc); acc += t.length; });
+    const pos = starts[run.indexOf(ru)];
+    if (window.Intl && Intl.Segmenter) {
+      try {
+        for (const s of new Intl.Segmenter('zh', { granularity: 'word' }).segment(texts.join(''))) {
+          if (pos >= s.index && pos < s.index + s.segment.length) {
+            const list = run.filter((_, i) => starts[i] >= s.index && starts[i] < s.index + s.segment.length);
+            if (list.includes(ru)) return list;
+          }
+        }
+      } catch (_) {}
+    }
+    return [ru];
+  }
+
+  // 双击某个字：选中它所在的整个词（再点「✨拼音」即可去掉/加上）
+  wb.addEventListener('dblclick', e => {
+    const ru = e.target.closest && e.target.closest('ruby');
+    if (!ru) return;
+    const list = wordRun(ru);
+    const r = document.createRange();
+    r.setStartBefore(list[0]); r.setEndAfter(list[list.length - 1]);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    e.preventDefault();
+  });
+
+  // 「🩹 点击去拼音」模式
+  let eraser = false;
+  const eraserBtn = document.createElement('button');
+  eraserBtn.id = 'btnPinyinEraser';
+  eraserBtn.className = 'toolbar-btn';
+  eraserBtn.style.cssText = 'background:#fef2f2;color:#b91c1c;border-color:#fecaca;font-weight:700;';
+  eraserBtn.title = '开启后：点一下字，去掉它所在词的拼音；Shift+点 只去一个字';
+  eraserBtn.textContent = '🩹 点击去拼音: 关';
+  eraserBtn.addEventListener('mousedown', e => e.preventDefault());
+  eraserBtn.addEventListener('click', () => {
+    eraser = !eraser;
+    eraserBtn.textContent = '🩹 点击去拼音: ' + (eraser ? '开' : '关');
+    eraserBtn.classList.toggle('btn-draw-active', eraser);
+    wb.classList.toggle('eraser-on', eraser);
+  });
+  const pyBtn = $('btnTogglePinyin');
+  if (pyBtn) pyBtn.after(eraserBtn);
+  wb.addEventListener('mousedown', e => {
+    if (eraser && e.target.closest && e.target.closest('ruby')) e.preventDefault();
+  }, true);
+  wb.addEventListener('click', e => {
+    if (!eraser) return;
+    const ru = e.target.closest && e.target.closest('ruby');
+    if (!ru) return;
+    e.preventDefault();
+    saveHist();
+    unwrap(e.shiftKey ? [ru] : wordRun(ru));
+    wb.normalize();
+    saveHist();
+  }, true);
+
+  /* =========================================================
+     C. 课堂演示模式：一次一页 PPT/PDF + 画笔/荧光笔/激光笔
+  ========================================================= */
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const demo = { on: false, idx: 0, tool: 'none', color: '#ef4444', sbCollapsed: false };
+  const COLORS = ['#ef4444', '#2563eb', '#16a34a', '#eab308', '#111827'];
+
+  const dyn = document.createElement('style'); dyn.id = 'demoDynStyle'; document.head.appendChild(dyn);
+  const dot = document.createElement('div'); dot.id = 'laserDot'; document.body.appendChild(dot);
+
+  const bar = document.createElement('div');
+  bar.id = 'demoBar';
+  bar.innerHTML =
+    '<button class="db" data-a="prev">◀ 上一页</button>' +
+    '<span>第 <input id="demoPageInput" type="number" min="1" style="width:54px;border:1px solid #cbd5e1;border-radius:4px;text-align:center;padding:2px;"> / <b id="demoTotal">0</b> 页</span>' +
+    '<button class="db" data-a="next">下一页 ▶</button>' +
+    '<i class="dsep"></i>' +
+    '<button class="db" data-tool="none">⌨ 编辑</button>' +
+    '<button class="db" data-tool="pen">✏️ 画笔</button>' +
+    '<button class="db" data-tool="hl">🖍 荧光笔</button>' +
+    '<button class="db" data-tool="laser">🔴 激光笔</button>' +
+    '<span>' + COLORS.map(c => '<i class="dc" data-color="' + c + '" style="background:' + c + '"></i>').join('') + '</span>' +
+    '<button class="db" data-a="undo">↩ 撤销笔迹</button>' +
+    '<button class="db" data-a="clear">🧹 清空本页笔迹</button>' +
+    '<i class="dsep"></i>' +
+    '<button class="db" data-a="full">⛶ 全屏</button>' +
+    '<button class="db" data-a="exit" style="background:#fee2e2;color:#b91c1c;">✖ 退出演示</button>';
+  document.body.appendChild(bar);
+  bar.addEventListener('mousedown', e => { if (!(e.target.tagName === 'INPUT')) e.preventDefault(); });
+
+  const demoBtn = document.createElement('button');
+  demoBtn.id = 'btnDemoMode';
+  demoBtn.className = 'toolbar-btn';
+  demoBtn.style.cssText = 'background:#fef3c7;color:#92400e;border-color:#fcd34d;font-weight:700;';
+  demoBtn.textContent = '📽 课堂演示';
+  demoBtn.title = '一次显示一页 PPT/PDF，可翻页、画笔、激光笔';
+  demoBtn.addEventListener('mousedown', e => e.preventDefault());
+  demoBtn.addEventListener('click', () => demo.on ? exitDemo() : enterDemo());
+  const undoBtn = $('btnUndo');
+  if (undoBtn) undoBtn.before(demoBtn); else document.body.appendChild(demoBtn);
+
+  const pages = () => Array.from(wb.children).filter(el => el.classList && el.classList.contains('pptx-import'));
+
+  function inkLayer(page, create) {
+    let s = null;
+    for (const c of page.children) if (c.tagName && c.tagName.toLowerCase() === 'svg' && c.classList.contains('page-ink')) { s = c; break; }
+    if (!s && create) {
+      s = document.createElementNS(SVGNS, 'svg');
+      s.setAttribute('class', 'page-ink');
+      s.setAttribute('viewBox', '0 0 1000 1000');
+      s.setAttribute('preserveAspectRatio', 'none');
+      s.setAttribute('contenteditable', 'false');
+      page.appendChild(s);
+    }
+    return s;
+  }
+
+  function refreshBar() {
+    bar.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === demo.tool));
+    bar.querySelectorAll('.dc').forEach(c => c.classList.toggle('active', c.dataset.color === demo.color));
+  }
+  function setTool(t) {
+    demo.tool = t;
+    wb.classList.toggle('ink-on', demo.on && t !== 'none');
+    if (t === 'none') dot.style.display = 'none';
+    const ps = pages();
+    if (demo.on && t !== 'none' && ps[demo.idx]) inkLayer(ps[demo.idx], true);
+    refreshBar();
+  }
+
+  function applyDemo() {
+    const ps = pages();
+    if (!ps.length) { exitDemo(); return; }
+    demo.idx = Math.max(0, Math.min(ps.length - 1, demo.idx));
+    const cur = ps[demo.idx];
+    const k = Array.from(wb.children).indexOf(cur) + 1;
+
+    let ratio = 16 / 9;
+    const ar = cur.style.aspectRatio;
+    if (ar) { const parts = ar.split('/').map(parseFloat); if (parts[0] > 0) ratio = parts[0] / (parts[1] || 1); }
+
+    const sr = scrollC.getBoundingClientRect(), br = bar.getBoundingClientRect();
+    const overlap = Math.max(0, sr.bottom - br.top);
+    const availW = Math.max(200, scrollC.clientWidth - 40 - 8);
+    const availH = Math.max(150, scrollC.clientHeight - 40 - 12 - overlap);
+    const BASE = 960, H = BASE / ratio;
+    const s = Math.min(availW / BASE, availH / H);
+    const left = Math.max(0, (scrollC.clientWidth - 40 - BASE * s) / 2);
+
+    dyn.textContent =
+      '#whiteboardContent.demo-on>*:not(:nth-child(' + k + ')){display:none!important}' +
+      '#whiteboardContent.demo-on>:nth-child(' + k + '){display:block!important;width:' + BASE + 'px!important;height:' + H + 'px!important;' +
+      'min-width:0!important;min-height:0!important;max-width:none!important;aspect-ratio:auto!important;resize:none!important;' +
+      'transform:scale(' + s + ')!important;transform-origin:0 0!important;margin:6px 0 ' + (-(H * (1 - s))) + 'px ' + left + 'px!important}';
+
+    $('demoTotal').textContent = ps.length;
+    $('demoPageInput').value = demo.idx + 1;
+    scrollC.scrollTop = 0;
+    dot.style.display = 'none';
+    if (demo.tool !== 'none') inkLayer(cur, true);
+  }
+  function go(i) { demo.idx = i; applyDemo(); }
+
+  function enterDemo() {
+    const ps = pages();
+    if (!ps.length) { alert('白板上还没有 PPT / PDF 页面。\n请先在右侧“上传上课文件”中选择 PPT 或 PDF。'); return; }
+    const top = scrollC.getBoundingClientRect().top;
+    let idx = 0;
+    ps.forEach((p, i) => { if (p.getBoundingClientRect().top <= top + 120) idx = i; });
+    demo.idx = idx; demo.on = true;
+    wb.classList.add('demo-on'); scrollC.classList.add('demo-lock');
+    bar.classList.add('on'); demoBtn.classList.add('btn-draw-active');
+    const sb = $('sidebarPanel');
+    demo.sbCollapsed = false;
+    if (sb && sb.classList.contains('md:w-80') && window.innerWidth >= 768 && $('btnCollapseSidebar')) {
+      $('btnCollapseSidebar').click(); demo.sbCollapsed = true;
+    }
+    refreshBar(); applyDemo();
+    setTimeout(applyDemo, 350);
+  }
+  function exitDemo() {
+    const ps = pages(), cur = ps[demo.idx];
+    demo.on = false;
+    setTool('none');
+    wb.classList.remove('demo-on', 'ink-on'); scrollC.classList.remove('demo-lock');
+    bar.classList.remove('on'); demoBtn.classList.remove('btn-draw-active');
+    dyn.textContent = ''; dot.style.display = 'none';
+    if (demo.sbCollapsed && $('btnExpandSidebar')) { $('btnExpandSidebar').click(); demo.sbCollapsed = false; }
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+    if (cur) setTimeout(() => cur.scrollIntoView({ block: 'start' }), 50);
+  }
+
+  bar.addEventListener('click', e => {
+    const dc = e.target.closest('.dc');
+    if (dc) { demo.color = dc.dataset.color; if (demo.tool === 'none' || demo.tool === 'laser') setTool('pen'); refreshBar(); return; }
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.tool) { setTool(b.dataset.tool); return; }
+    const ps = pages(), cur = ps[demo.idx];
+    switch (b.dataset.a) {
+      case 'prev': go(demo.idx - 1); break;
+      case 'next': go(demo.idx + 1); break;
+      case 'undo': { const s = cur && inkLayer(cur, false); const p = s && s.querySelectorAll('path'); if (p && p.length) { p[p.length - 1].remove(); saveHist(); } break; }
+      case 'clear': { const s = cur && inkLayer(cur, false); if (s) { s.querySelectorAll('path').forEach(p => p.remove()); saveHist(); } break; }
+      case 'full': if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); break;
+      case 'exit': exitDemo(); break;
+    }
+  });
+  $('demoPageInput').addEventListener('change', e => go((parseInt(e.target.value, 10) || 1) - 1));
+
+  document.addEventListener('keydown', e => {
+    if (!demo.on) return;
+    const ed = e.target.closest && e.target.closest('[contenteditable="true"],input,textarea,select');
+    const arrowOk = !ed || demo.tool !== 'none';
+    if (e.key === 'PageDown' || (arrowOk && (e.key === 'ArrowRight' || e.key === 'ArrowDown'))) { e.preventDefault(); go(demo.idx + 1); }
+    else if (e.key === 'PageUp' || (arrowOk && (e.key === 'ArrowLeft' || e.key === 'ArrowUp'))) { e.preventDefault(); go(demo.idx - 1); }
+    else if (e.key === 'Escape' && !document.fullscreenElement) { exitDemo(); }
+  });
+
+  // —— 画笔 / 荧光笔：坐标按页面 0~1000 归一化，页面缩放时笔迹跟着缩放 ——
+  const toPt = (svg, ev) => {
+    const r = svg.getBoundingClientRect();
+    return { x: +((ev.clientX - r.left) / r.width * 1000).toFixed(1), y: +((ev.clientY - r.top) / r.height * 1000).toFixed(1) };
+  };
+  let stroke = null;
+  wb.addEventListener('pointerdown', e => {
+    if (!demo.on || demo.tool === 'none' || demo.tool === 'laser') return;
+    const svg = e.target.closest && e.target.closest('svg.page-ink');
+    if (!svg) return;
+    e.preventDefault();
+    try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+    const p = toPt(svg, e), hl = demo.tool === 'hl';
+    const path = document.createElementNS(SVGNS, 'path');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', demo.color);
+    path.setAttribute('stroke-width', hl ? 18 : 4);
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('vector-effect', 'non-scaling-stroke');
+    if (hl) path.setAttribute('stroke-opacity', '.35');
+    const d = 'M' + p.x + ' ' + p.y;
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+    stroke = { svg, path, d, n: 1, id: e.pointerId };
+  });
+  wb.addEventListener('pointermove', e => {
+    if (stroke && e.pointerId === stroke.id) {
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      (evs.length ? evs : [e]).forEach(ev => { const p = toPt(stroke.svg, ev); stroke.d += ' L' + p.x + ' ' + p.y; stroke.n++; });
+      stroke.path.setAttribute('d', stroke.d);
+    }
+    // 激光笔红点
+    if (demo.on && demo.tool === 'laser' && e.target.closest && e.target.closest('svg.page-ink')) {
+      dot.style.display = 'block'; dot.style.left = e.clientX + 'px'; dot.style.top = e.clientY + 'px';
+    } else if (dot.style.display !== 'none') dot.style.display = 'none';
+  });
+  function endStroke() {
+    if (!stroke) return;
+    if (stroke.n === 1) stroke.path.setAttribute('d', stroke.d + ' l0.01 0');
+    stroke = null; saveHist();
+  }
+  wb.addEventListener('pointerup', endStroke);
+  wb.addEventListener('pointercancel', endStroke);
+  wb.addEventListener('pointerleave', () => { dot.style.display = 'none'; });
+
+  // 窗口/面板尺寸变化、撤销还原导致页面重建时，重新适配
+  window.addEventListener('resize', () => { if (demo.on) applyDemo(); });
+  if (window.ResizeObserver) new ResizeObserver(() => { if (demo.on) applyDemo(); }).observe(scrollC);
+  new MutationObserver(() => { if (demo.on) applyDemo(); }).observe(wb, { childList: true });
+})();
 </script>
 </body>
 </html>

@@ -2749,15 +2749,37 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             }
         });
 
+        function rangeHasPinyin(range) {
+            let has = false;
+            whiteboard.querySelectorAll('ruby, .pinyin-inline-table').forEach(node => {
+                try { if (range.intersectsNode(node)) has = true; } catch (e) {}
+            });
+            return has;
+        }
+
         async function combinePinyinAndTranslate(range, selectedText) {
             const lang = getTargetLang();
             const plain = getSelectionPlainText(range) || selectedText;
+            if (!plain || !/[\u4e00-\u9fa5]/.test(plain)) return;
             saveHistoryImmediate();
 
-            const res = convertRangeToPinyinKeepEnd(range);
-            const block = createTranslationBlock(lang);
-            res.endMark.replaceWith(block);
+            let endMark;
+            if (!rangeHasPinyin(range)) {
+                const res = convertRangeToPinyinKeepEnd(range);
+                endMark = res.endMark;
+            } else {
+                // 已有拼音时保留原内容，只在选区末尾放置译文。
+                endMark = document.createElement('span');
+                endMark.setAttribute('data-end-mark', '1');
+                const endRange = range.cloneRange();
+                endRange.collapse(false);
+                endRange.insertNode(endMark);
+                const grp = endMark.parentElement && endMark.parentElement.closest('ruby, .pinyin-inline-table, .core-vocab');
+                if (grp && whiteboard.contains(grp)) grp.after(endMark);
+            }
 
+            const block = createTranslationBlock(lang);
+            endMark.replaceWith(block);
             const z = document.createTextNode('\u200B');
             block.after(z);
             const nr = document.createRange();
@@ -2773,7 +2795,6 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             setTranslationContent(block, lang, translation);
             saveAfterAsync(snap);
         }
-
         function isLineBreakNode(n) {
             if (n.nodeType !== 1) return false;
             if (n.tagName === 'BR') return true;
@@ -2784,7 +2805,8 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             const sc = caret.startContainer;
             const el0 = sc.nodeType === 3 ? sc.parentElement : sc;
             if (!el0 || !whiteboard.contains(el0)) return false;
-            if (el0.closest('.english-line, ruby, table, .pptx-import')) return false;
+            // 拼音 ruby 可参与当前行判断；翻译块、表格和 PPT 内容仍不触发本快捷键。
+            if (el0.closest('.english-line, table, .pptx-import')) return false;
 
             let container = el0.closest('p, div, li, h1, h2, h3, h4, h5, h6, blockquote');
             if (!container || !whiteboard.contains(container)) container = whiteboard;
@@ -2795,7 +2817,8 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
                 nextStart = container.childNodes[caret.startOffset] || null;
             } else {
                 let top = sc;
-                while (top.parentNode !== container) top = top.parentNode;
+                while (top.parentNode && top.parentNode !== container) top = top.parentNode;
+                if (top.parentNode !== container) return false;
                 prevStart = top.previousSibling;
                 nextStart = top.nextSibling;
             }
@@ -2808,14 +2831,15 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             if (prev) lineRange.setStartAfter(prev); else lineRange.setStart(container, 0);
             if (next) lineRange.setEndBefore(next); else lineRange.setEnd(container, container.childNodes.length);
 
-            const lineText = lineRange.toString().replace(/\u200B/g, '').trim();
+            const lineText = getSelectionPlainText(lineRange);
             if (!/[\u4e00-\u9fa5]/.test(lineText)) return false;
             const frag = lineRange.cloneContents();
-            if (frag.querySelector('ruby, table, .english-line, img, .resizable-img-wrapper')) return false;
+            if (frag.querySelector('table, .english-line, img, .resizable-img-wrapper')) return false;
 
             const lang = getTargetLang();
+            const alreadyHasPinyin = rangeHasPinyin(lineRange);
             saveHistoryImmediate();
-            convertRangeToPinyin(lineRange);
+            if (!alreadyHasPinyin) convertRangeToPinyin(lineRange);
 
             const block = createTranslationBlock(lang);
             let caretNode, caretOffset;
@@ -2848,7 +2872,6 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             });
             return true;
         }
-
         function resizeSelectedText(delta) {
             const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;

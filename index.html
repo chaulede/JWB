@@ -786,6 +786,9 @@
 #topicPracticeForm{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:10px;padding:12px;border:1px solid #e9d5ff;border-radius:12px;background:#faf5ff}
 #topicPracticeForm input,#topicPracticeForm select{width:100%;padding:8px 10px;border:1px solid #d8b4fe;border-radius:8px;background:#fff;outline:none}
 #topicPracticeHint{grid-column:1/-1;color:#86198f;font-size:12px}
+#topicPracticeVisibility{grid-column:1/-1;display:flex;gap:14px;flex-wrap:wrap;color:#6b21a8;font-size:12px;font-weight:700}
+#topicPracticeVisibility label{display:flex;align-items:center;gap:5px}
+#topicPracticeOutput.topic-hide-pinyin .topic-pinyin,#topicPracticeOutput.topic-hide-english .topic-english{display:none!important}
 #topicPracticeOutput{min-height:280px;margin-top:12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;line-height:1.8;overflow:auto}
 #topicPracticeOutput:empty:before{content:'生成结果会显示在这里';color:#94a3b8}
 #topicPracticeOutput h1,#topicPracticeOutput h2,#topicPracticeOutput h3{color:#7e22ce;margin:12px 0 6px}
@@ -802,6 +805,7 @@
     <input id="topicPracticeInput" type="text" placeholder="输入话题或关键词，例如：性格、购物、我的一天">
     <select id="topicPracticeType"><option value="dialogue">情景对话练习</option><option value="reading">主题阅读材料</option><option value="dialogue_questions">对话 + 理解题</option><option value="exam">综合练习题</option></select>
     <label id="topicPracticeHint"><input id="topicUseBoard" type="checkbox" checked> 自动结合白板内容和已标注的核心词汇</label>
+    <div id="topicPracticeVisibility"><label><input id="topicShowPinyin" type="checkbox" checked> 显示拼音</label><label><input id="topicShowEnglish" type="checkbox" checked> 显示英文</label></div>
    </div>
    <div id="topicPracticeOutput" class="markdown-body" aria-live="polite"></div>
   </div>
@@ -3295,15 +3299,35 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
         const topicInput = document.getElementById('topicPracticeInput');
         const topicType = document.getElementById('topicPracticeType');
         const topicUseBoard = document.getElementById('topicUseBoard');
+        const topicShowPinyin = document.getElementById('topicShowPinyin');
+        const topicShowEnglish = document.getElementById('topicShowEnglish');
         const topicOutput = document.getElementById('topicPracticeOutput');
         let topicMarkdown = '';
         function topicTypeInstruction(type) {
             return {
-                dialogue: '生成一组适合课堂角色扮演的情景对话。标明角色，包含中文、拼音和英文提示；对话自然，留出学生回答或替换词语的练习位置。',
+                dialogue: '生成一组适合课堂角色扮演的情景对话。每个角色的每一句话必须按以下 Markdown 列表格式分三行：- 中文：……；- 拼音：……；- 英文：……。角色名单独一行。对话自然，留出学生回答或替换词语的练习位置。',
                 reading: '生成一篇适合当前学习者水平的主题阅读材料，包含标题、正文、重点词语和3-5道阅读理解题。',
-                dialogue_questions: '先生成一组有明确情景和角色的中文对话，再生成5道理解题和参考答案；对话中必须使用给定词汇。',
+                dialogue_questions: '先生成一组有明确情景和角色的中文对话。每句对话必须按“中文、拼音、英文”三行分开，再生成5道理解题和参考答案；对话中必须使用给定词汇。',
                 exam: '生成一套围绕该主题的课堂练习，至少包含词汇填空、连词成句、情景对话和阅读理解，并在最后提供参考答案。'
             }[type] || '';
+        }
+        function renderTopicOutput() {
+            const html = (typeof marked !== 'undefined') ? marked.parse(topicMarkdown) : escapeHtml(topicMarkdown).replace(/\n/g,'<br>');
+            topicOutput.innerHTML = html;
+            topicOutput.querySelectorAll('li,p,div').forEach(node => {
+                const text = node.textContent.trim().replace(/^[-*]\s*/, '');
+                if (/^(拼音|Pinyin)\s*[:：]/i.test(text)) node.classList.add('topic-pinyin');
+                if (/^(英文|English|英语)\s*[:：]/i.test(text)) node.classList.add('topic-english');
+            });
+            topicOutput.classList.toggle('topic-hide-pinyin', !topicShowPinyin.checked);
+            topicOutput.classList.toggle('topic-hide-english', !topicShowEnglish.checked);
+        }
+        function visibleTopicMarkdown() {
+            return topicMarkdown.split('\n').filter(line => {
+                if (!topicShowPinyin.checked && /^\s*(?:[-*]\s*)?(?:拼音|Pinyin)\s*[:：]/i.test(line)) return false;
+                if (!topicShowEnglish.checked && /^\s*(?:[-*]\s*)?(?:英文|English|英语)\s*[:：]/i.test(line)) return false;
+                return true;
+            }).join('\n');
         }
         async function generateTopicPractice() {
             const topic = topicInput.value.trim();
@@ -3324,12 +3348,12 @@ ${context}
 【教学要求】
 1. 内容要围绕主题，难度适合白板内容显示的学习者；不要脱离主题堆砌词语。
 2. 如果提供了核心词汇，尽可能自然地全部使用，并在最后列出“本次使用的核心词汇”。
-3. 中文内容准确、自然，必要时为重点句提供拼音和简洁英文提示。
+ 3. 情景对话和对话练习必须把每句话分成独立的“中文：”“拼音：”“英文：”三行，不能把三种语言写在同一行；阅读材料也请把重点句的三种语言分行。
 4. 练习题必须有清楚的作答要求；参考答案集中放在最后。
 5. 只输出 Markdown 正文，不要说明你是 AI，也不要输出 JSON。`;
             try {
                 topicMarkdown = await callAI(prompt, '你是专业的国际中文课程设计教师，输出内容要准确、实用、适合课堂互动。');
-                topicOutput.innerHTML = (typeof marked !== 'undefined') ? marked.parse(topicMarkdown) : escapeHtml(topicMarkdown).replace(/\n/g,'<br>');
+                renderTopicOutput();
             } catch (error) {
                 topicMarkdown = '';
                 topicOutput.innerHTML = '<span style="color:#b91c1c">生成失败：' + escapeHtml(error.message || '请检查 API Key 和网络连接') + '</span>';
@@ -3337,6 +3361,8 @@ ${context}
         }
         document.getElementById('btnTopicPractice').onclick = () => { topicModal.hidden = false; topicInput.focus(); };
         document.getElementById('topicPracticeGenerate').onclick = generateTopicPractice;
+        topicShowPinyin.onchange = renderTopicOutput;
+        topicShowEnglish.onchange = renderTopicOutput;
         topicInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateTopicPractice(); });
         function closeTopicPractice() { topicModal.hidden = true; }
         document.getElementById('topicPracticeClose').onclick = closeTopicPractice;
@@ -3344,7 +3370,8 @@ ${context}
         document.getElementById('topicPracticeInsert').onclick = () => {
             if (!topicMarkdown) { alert('请先生成内容。'); return; }
             if (whiteboard.innerText.trim() && whiteboard.innerHTML !== '<p><br></p>') whiteboard.insertAdjacentHTML('beforeend','<hr style="border:1px dashed #cbd5e1;margin:24px 0;">');
-            whiteboard.insertAdjacentHTML('beforeend', (typeof marked !== 'undefined') ? marked.parse(topicMarkdown) : '<p>'+escapeHtml(topicMarkdown).replace(/\n/g,'<br>')+'</p>');
+            const visibleMarkdown = visibleTopicMarkdown();
+            whiteboard.insertAdjacentHTML('beforeend', (typeof marked !== 'undefined') ? marked.parse(visibleMarkdown) : '<p>'+escapeHtml(visibleMarkdown).replace(/\n/g,'<br>')+'</p>');
             saveHistoryImmediate(); closeTopicPractice();
         };
         document.getElementById('topicPracticeCopy').onclick = async () => {
@@ -4970,8 +4997,8 @@ color:#f8fafc;font:10px system-ui}
 <section id="jwbyCaptionPanel" aria-label="中文实时翻译" hidden>
  <div id="jwbyCaptionHeader">
   <strong>中文实时翻译</strong>
-  <label>识别 <select id="jwbySourceLanguage"><option value="en-US">英语（美）</option><option value="en-GB">英语（英）</option><option value="zh-CN">中文</option><option value="ja-JP">日语</option><option value="ko-KR">韩语</option><option value="fr-FR">法语</option><option value="de-DE">德语</option><option value="es-ES">西语</option><option value="vi-VN">越南语</option><option value="ru-RU">俄语</option><option value="uk-UA">乌克兰语</option><option value="it-IT">意大利语</option><option value="th-TH">泰语</option></select></label>
-  <label>翻译至 <select id="jwbyTargetLanguage"><option value="zh-CN">中文</option><option value="en">英语</option><option value="vi">越南语</option><option value="ru">俄语</option><option value="uk">乌克兰语</option><option value="it">意大利语</option><option value="th">泰语</option><option value="ja">日语</option><option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option><option value="es">西班牙语</option></select></label>
+  <label>识别 <select id="jwbySourceLanguage"><option value="en-US">英语（美）</option><option value="en-GB">英语（英）</option><option value="zh-CN">中文</option><option value="ja-JP">日语</option><option value="ko-KR">韩语</option><option value="fr-FR">法语</option><option value="de-DE">德语</option><option value="es-ES">西语</option><option value="vi-VN">越南语</option><option value="ru-RU">俄语</option><option value="uk-UA">乌克兰语</option><option value="it-IT">意大利语</option><option value="th-TH">泰语</option><option value="kk-KZ">哈萨克语</option></select></label>
+  <label>翻译至 <select id="jwbyTargetLanguage"><option value="zh-CN">中文</option><option value="en">英语</option><option value="vi">越南语</option><option value="ru">俄语</option><option value="uk">乌克兰语</option><option value="it">意大利语</option><option value="th">泰语</option><option value="kk">哈萨克语</option><option value="ja">日语</option><option value="ko">韩语</option><option value="fr">法语</option><option value="de">德语</option><option value="es">西班牙语</option></select></label>
   <label>翻译 <select id="jwbyProvider"><option value="">请选择</option><option value="google">Google 兼容</option><option value="ollama">Ollama</option><option value="libretranslate">LibreTranslate</option><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="claude">Claude</option><option value="zhipu">智谱 GLM</option></select></label>
   <button class="jwby-start" id="jwbyStart" type="button">开始</button><button class="jwby-stop" id="jwbyStop" type="button" disabled>停止</button>
   <button class="jwby-icon" id="jwbyClear" type="button" title="清除字幕">⌫</button>
@@ -5009,7 +5036,7 @@ color:#f8fafc;font:10px system-ui}
  function syncAuth(){if(!window.jwbyIsAuthenticated||window.jwbyIsAuthenticated())showPanel();else{panel.hidden=true;$('jwbyCaptionRestore').hidden=true}} syncAuth();document.addEventListener('jwby-static-authenticated',syncAuth);
   function updateButtons(){$('jwbyStart').disabled=running;$('jwbyStop').disabled=!running;$('jwbyPause').disabled=!running;$('jwbyPause').textContent=paused?'▶':'Ⅱ';$('jwbyPause').title=paused?'继续识别':'暂停识别';$('jwbySourceLanguage').disabled=running;$('jwbyTargetLanguage').disabled=running;$('jwbyProvider').disabled=running}
   function updateTargetLabel(){$('jwbyTargetLabel').textContent=$('jwbyTargetLanguage').selectedOptions[0]?.textContent||'中文'}
-  function targetConfig(){const configs={"zh-CN":{code:'zh-CN',name:'简体中文'},en:{code:'en',name:'英语'},vi:{code:'vi',name:'越南语'},ru:{code:'ru',name:'俄语'},uk:{code:'uk',name:'乌克兰语'},it:{code:'it',name:'意大利语'},th:{code:'th',name:'泰语'},ja:{code:'ja',name:'日语'},ko:{code:'ko',name:'韩语'},fr:{code:'fr',name:'法语'},de:{code:'de',name:'德语'},es:{code:'es',name:'西班牙语'}};return configs[$('jwbyTargetLanguage').value]||configs['zh-CN']}
+  function targetConfig(){const configs={"zh-CN":{code:'zh-CN',name:'简体中文'},en:{code:'en',name:'英语'},vi:{code:'vi',name:'越南语'},ru:{code:'ru',name:'俄语'},uk:{code:'uk',name:'乌克兰语'},it:{code:'it',name:'意大利语'},th:{code:'th',name:'泰语'},kk:{code:'kk',name:'哈萨克语'},ja:{code:'ja',name:'日语'},ko:{code:'ko',name:'韩语'},fr:{code:'fr',name:'法语'},de:{code:'de',name:'德语'},es:{code:'es',name:'西班牙语'}};return configs[$('jwbyTargetLanguage').value]||configs['zh-CN']}
  function paintText(){const size=$('jwbyFontSize').value,color=$('jwbyFontColor').value;$('jwbyFontSizeValue').textContent=size;$('jwbySource').style.fontSize=$('jwbyTranslation').style.fontSize=size+'px';$('jwbySource').style.color='#f8fafc';$('jwbyTranslation').style.color=color}
  function paintPanel(){const hex=$('jwbyPanelColor').value,r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16),a=Number($('jwbyPanelOpacity').value)/100;panel.style.backgroundColor='rgba('+r+','+g+','+b+','+a+')';$('jwbyPanelOpacityValue').textContent=$('jwbyPanelOpacity').value+'%'}
  function getRecords(){try{return JSON.parse(localStorage.getItem(historyKey)||'[]')}catch{return []}}

@@ -717,7 +717,8 @@
 
         <div class="flex flex-col gap-1.5 mt-auto pt-1">
             <button id="btnQuiz" class="w-full bg-amber-500 text-white py-1.5 rounded-lg font-bold hover:bg-amber-600 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-amber-600">🎯 生成课堂测验 (展示在白板)</button>
-            <button id="btnDownloadCombinedHomework" onclick="downloadCombinedHomework()" class="w-full bg-sky-700 text-white py-1.5 rounded-lg font-bold hover:bg-sky-800 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-sky-800">📥 下载白板上的试题</button>
+             <button id="btnTopicPractice" class="w-full bg-fuchsia-600 text-white py-1.5 rounded-lg font-bold hover:bg-fuchsia-700 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-fuchsia-700">💬 话题、阅读材料</button>
+            <button id="btnDownloadCombinedHomework" onclick="downloadCombinedHomework()" class="w-full bg-sky-700 text-white py-1.5 rounded-lg font-bold hover:bg-sky-800 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-sky-800">📥 下载课堂练习</button>
             
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-1.5 rounded-lg font-medium hover:bg-emerald-700 transition text-xs cursor-pointer flex justify-center items-center mt-1 border-t border-slate-200 pt-2">📚 一键整理白板笔记</button>
             <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载复习笔记 (Word)</button>
@@ -770,6 +771,41 @@
   <div id="wordCardHeader"><h2 id="wordCardTitle">🎴 词卡</h2><button id="wordCardClose" type="button" aria-label="关闭">×</button></div>
   <div id="wordCardBody"><div id="wordCardOptions"><label>教材 <select id="deckBook"></select></label><label>课次 <select id="deckLesson"></select></label></div><div id="wordCardPreview" aria-live="polite"></div></div>
   <div id="wordCardActions"><button id="wordCardFlip" class="word-card-secondary" type="button">翻面</button><button id="lessonPrev">上一个</button><output id="lessonCount"></output><button id="lessonNext">下一个</button><button id="wordCardCloseBottom" class="word-card-secondary" type="button">关闭</button></div>
+ </div>
+</div>
+
+<style id="topic-practice-styles">
+#btnTopicPractice{background:#c026d3;color:#fff}
+#btnDownloadCombinedHomework{background:#0369a1;color:#fff}
+#topicPracticeModal[hidden]{display:none!important}
+#topicPracticeModal{position:fixed;inset:0;z-index:10060;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.62);backdrop-filter:blur(3px)}
+#topicPracticeDialog{width:min(900px,96vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;background:#fff;border-radius:18px;box-shadow:0 24px 70px #0006}
+#topicPracticeHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e9d5ff;background:#faf5ff}
+#topicPracticeHeader h2{margin:0;color:#86198f;font-size:18px}
+#topicPracticeBody{overflow:auto;padding:16px;background:#fff}
+#topicPracticeForm{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:10px;padding:12px;border:1px solid #e9d5ff;border-radius:12px;background:#faf5ff}
+#topicPracticeForm input,#topicPracticeForm select{width:100%;padding:8px 10px;border:1px solid #d8b4fe;border-radius:8px;background:#fff;outline:none}
+#topicPracticeHint{grid-column:1/-1;color:#86198f;font-size:12px}
+#topicPracticeOutput{min-height:280px;margin-top:12px;padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;line-height:1.8;overflow:auto}
+#topicPracticeOutput:empty:before{content:'生成结果会显示在这里';color:#94a3b8}
+#topicPracticeOutput h1,#topicPracticeOutput h2,#topicPracticeOutput h3{color:#7e22ce;margin:12px 0 6px}
+#topicPracticeOutput .topic-loading{color:#86198f;font-weight:700}
+#topicPracticeActions{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid #e2e8f0;background:#fafafa;flex-wrap:wrap}
+#topicPracticeActions button{padding:7px 13px;border-radius:8px;font-weight:700;cursor:pointer}
+@media(max-width:620px){#topicPracticeForm{grid-template-columns:1fr}}
+</style>
+<div id="topicPracticeModal" hidden role="dialog" aria-modal="true" aria-labelledby="topicPracticeTitle">
+ <div id="topicPracticeDialog">
+  <div id="topicPracticeHeader"><h2 id="topicPracticeTitle">💬 话题练习生成器</h2><button id="topicPracticeClose" type="button" aria-label="关闭">×</button></div>
+  <div id="topicPracticeBody">
+   <div id="topicPracticeForm">
+    <input id="topicPracticeInput" type="text" placeholder="输入话题或关键词，例如：性格、购物、我的一天">
+    <select id="topicPracticeType"><option value="dialogue">情景对话练习</option><option value="reading">主题阅读材料</option><option value="dialogue_questions">对话 + 理解题</option><option value="exam">综合练习题</option></select>
+    <label id="topicPracticeHint"><input id="topicUseBoard" type="checkbox" checked> 自动结合白板内容和已标注的核心词汇</label>
+   </div>
+   <div id="topicPracticeOutput" class="markdown-body" aria-live="polite"></div>
+  </div>
+  <div id="topicPracticeActions"><button id="topicPracticeGenerate" style="background:#c026d3;color:white">生成内容</button><button id="topicPracticeInsert" style="background:#ede9fe;color:#6b21a8">插入白板</button><button id="topicPracticeCopy" style="background:#f1f5f9;color:#334155">复制</button><button id="topicPracticeDownload" style="background:#e0f2fe;color:#0369a1">下载 Word</button><button id="topicPracticeCloseBottom" style="background:#f1f5f9;color:#334155">关闭</button></div>
  </div>
 </div>
 
@@ -3254,6 +3290,71 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
         previous.onclick = () => { if (index > 0) { index--; showCard(); } };
         next.onclick = () => { if (index+1 < deck.length) { index++; showCard(); } };
         bookSelect.onchange = selectBook; lessonSelect.onchange = selectLesson;
+
+        const topicModal = document.getElementById('topicPracticeModal');
+        const topicInput = document.getElementById('topicPracticeInput');
+        const topicType = document.getElementById('topicPracticeType');
+        const topicUseBoard = document.getElementById('topicUseBoard');
+        const topicOutput = document.getElementById('topicPracticeOutput');
+        let topicMarkdown = '';
+        function topicTypeInstruction(type) {
+            return {
+                dialogue: '生成一组适合课堂角色扮演的情景对话。标明角色，包含中文、拼音和英文提示；对话自然，留出学生回答或替换词语的练习位置。',
+                reading: '生成一篇适合当前学习者水平的主题阅读材料，包含标题、正文、重点词语和3-5道阅读理解题。',
+                dialogue_questions: '先生成一组有明确情景和角色的中文对话，再生成5道理解题和参考答案；对话中必须使用给定词汇。',
+                exam: '生成一套围绕该主题的课堂练习，至少包含词汇填空、连词成句、情景对话和阅读理解，并在最后提供参考答案。'
+            }[type] || '';
+        }
+        async function generateTopicPractice() {
+            const topic = topicInput.value.trim();
+            const boardText = topicUseBoard.checked ? whiteboard.innerText.trim().slice(0, 12000) : '';
+            const coreVocabs = topicUseBoard.checked ? getCoreVocabularies() : [];
+            if (!topic && !boardText && !coreVocabs.length) { alert('请先输入话题，或在白板上准备一些内容。'); return; }
+            const btn = document.getElementById('topicPracticeGenerate');
+            btn.disabled = true; btn.textContent = '生成中…';
+            topicOutput.innerHTML = '<div class="topic-loading">AI 正在根据话题和白板内容设计课堂材料，请稍候…</div>';
+            const context = [
+                `【话题关键词】${topic || '请根据白板内容自行概括主题'}`,
+                coreVocabs.length ? `【必须练习的核心词汇】${coreVocabs.join('、')}` : '',
+                boardText ? `【白板内容】\n${boardText}` : ''
+            ].filter(Boolean).join('\n');
+            const prompt = `你是一名经验丰富的国际中文教师。请根据下面的课堂信息设计可直接使用的中文教学材料。
+${context}
+【输出形式】${topicTypeInstruction(topicType.value)}
+【教学要求】
+1. 内容要围绕主题，难度适合白板内容显示的学习者；不要脱离主题堆砌词语。
+2. 如果提供了核心词汇，尽可能自然地全部使用，并在最后列出“本次使用的核心词汇”。
+3. 中文内容准确、自然，必要时为重点句提供拼音和简洁英文提示。
+4. 练习题必须有清楚的作答要求；参考答案集中放在最后。
+5. 只输出 Markdown 正文，不要说明你是 AI，也不要输出 JSON。`;
+            try {
+                topicMarkdown = await callAI(prompt, '你是专业的国际中文课程设计教师，输出内容要准确、实用、适合课堂互动。');
+                topicOutput.innerHTML = (typeof marked !== 'undefined') ? marked.parse(topicMarkdown) : escapeHtml(topicMarkdown).replace(/\n/g,'<br>');
+            } catch (error) {
+                topicMarkdown = '';
+                topicOutput.innerHTML = '<span style="color:#b91c1c">生成失败：' + escapeHtml(error.message || '请检查 API Key 和网络连接') + '</span>';
+            } finally { btn.disabled = false; btn.textContent = '生成内容'; }
+        }
+        document.getElementById('btnTopicPractice').onclick = () => { topicModal.hidden = false; topicInput.focus(); };
+        document.getElementById('topicPracticeGenerate').onclick = generateTopicPractice;
+        topicInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateTopicPractice(); });
+        function closeTopicPractice() { topicModal.hidden = true; }
+        document.getElementById('topicPracticeClose').onclick = closeTopicPractice;
+        document.getElementById('topicPracticeCloseBottom').onclick = closeTopicPractice;
+        document.getElementById('topicPracticeInsert').onclick = () => {
+            if (!topicMarkdown) { alert('请先生成内容。'); return; }
+            if (whiteboard.innerText.trim() && whiteboard.innerHTML !== '<p><br></p>') whiteboard.insertAdjacentHTML('beforeend','<hr style="border:1px dashed #cbd5e1;margin:24px 0;">');
+            whiteboard.insertAdjacentHTML('beforeend', (typeof marked !== 'undefined') ? marked.parse(topicMarkdown) : '<p>'+escapeHtml(topicMarkdown).replace(/\n/g,'<br>')+'</p>');
+            saveHistoryImmediate(); closeTopicPractice();
+        };
+        document.getElementById('topicPracticeCopy').onclick = async () => {
+            if (!topicMarkdown) { alert('请先生成内容。'); return; }
+            try { await navigator.clipboard.writeText(topicMarkdown); alert('已复制生成内容。'); } catch { alert('复制失败，请手动选择内容复制。'); }
+        };
+        document.getElementById('topicPracticeDownload').onclick = () => {
+            if (!topicMarkdown) { alert('请先生成内容。'); return; }
+            downloadWord(topicMarkdown, '话题课堂练习.docx');
+        };
         
 
         document.getElementById('btnQuiz').addEventListener('click', async function() {

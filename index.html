@@ -565,11 +565,13 @@
                 <h2 class="text-xl font-bold text-slate-800">中文互动白板 <span class="text-xs text-indigo-500 font-normal ml-2">支持粘贴图片与上传文档</span></h2>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm text-slate-500">字号:</span>
-                <button id="btnAPlus" class="toolbar-btn font-bold">A+</button>
-                <button id="btnAMinus" class="toolbar-btn font-bold">A-</button>
+                 <span class="text-sm text-slate-500">字号:</span>
+                 <select id="fontSizeSelect" class="toolbar-btn font-bold" title="选择字号">
+                     <option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24" selected>24</option><option value="28">28</option><option value="32">32</option><option value="36">36</option><option value="40">40</option><option value="48">48</option><option value="56">56</option><option value="64">64</option><option value="72">72</option><option value="80">80</option>
+                 </select>
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnBold" class="toolbar-btn font-bold" style="font-family: serif;">B</button>
+                 <button id="btnFormatPainter" class="toolbar-btn bg-yellow-50 text-yellow-700 border-yellow-200 font-bold" title="先选中有样式的文字，点击后再选目标文字">🖌️ 格式刷</button>
                 <div class="inline-flex items-center gap-1 bg-slate-100 border border-slate-300 rounded-lg px-2 py-1" title="字体颜色">
                     <span class="text-xs text-slate-500 font-bold mr-1">A</span>
                     <button type="button" class="font-color-btn" style="background-color: #ec4899;" data-color="#ec4899" title="粉色"></button>
@@ -614,7 +616,7 @@
                     </select>
                      <button id="btnToggleTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer" title="选中文字：无翻译则添加，有翻译则去除">🌐 翻译</button>
                 </div>
-                 <button id="btnInsertWordImage" class="toolbar-btn bg-cyan-50 text-cyan-700 border-cyan-200 font-bold" title="选中白板上的词语，搜索图片并插入白板">🖼️ 词语配图</button>
+                 <button id="btnInsertWordImage" class="toolbar-btn bg-cyan-50 text-cyan-700 border-cyan-200 font-bold" title="选中白板上的词语，搜索公开图片并插入白板">🔍 搜索图片</button>
                  <button id="btnWordCard" class="toolbar-btn bg-rose-50 text-rose-700 border-rose-200 font-bold" title="选中词语，生成可视化词卡">🎴 词卡</button>
                 <button id="btnUndo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↩️ 撤销</button>
                 <button id="btnRedo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↪️ 还原</button>
@@ -769,7 +771,7 @@
 <div id="wordCardModal" hidden role="dialog" aria-modal="true" aria-labelledby="wordCardTitle">
  <div id="wordCardDialog">
   <div id="wordCardHeader"><h2 id="wordCardTitle">🎴 词卡</h2><button id="wordCardClose" type="button" aria-label="关闭">×</button></div>
-  <div id="wordCardBody"><div id="wordCardOptions"><label>教材 <select id="deckBook"></select></label><label>课次 <select id="deckLesson"></select></label></div><div id="wordCardPreview" aria-live="polite"></div></div>
+   <div id="wordCardBody"><div id="wordCardOptions"><label>教材 <select id="deckBook"></select></label><label>课次 <select id="deckLesson"></select></label><label><input id="deckShowImage" type="checkbox" checked> 显示配图</label></div><div id="wordCardPreview" aria-live="polite"></div></div>
   <div id="wordCardActions"><button id="wordCardFlip" class="word-card-secondary" type="button">翻面</button><button id="lessonPrev">上一个</button><output id="lessonCount"></output><button id="lessonNext">下一个</button><button id="wordCardCloseBottom" class="word-card-secondary" type="button">关闭</button></div>
  </div>
 </div>
@@ -2409,6 +2411,8 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
 
         let currentFontSize = 24;
         whiteboard.style.fontSize = currentFontSize + 'px';
+        const fontSizeSelect = document.getElementById('fontSizeSelect');
+        let savedFontRange = null;
 
         function applyFontSize() {
             whiteboard.style.fontSize = currentFontSize + 'px';
@@ -2420,19 +2424,70 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             setTimeout(resizeCanvas, 100);
         }
 
-        document.getElementById('btnAPlus').addEventListener('click', () => {
-            if (resizeSelectedText(4)) return;
-            currentFontSize = Math.min(80, currentFontSize + 2);
-            applyFontSize();
+        function setSelectedTextFontSize(size) {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+            const range = sel.getRangeAt(0);
+            if (!whiteboard.contains(range.commonAncestorContainer)) return false;
+            const parts = getRangeTextParts(range).reverse();
+            const targets = [];
+            const seen = new Set();
+            saveHistoryImmediate();
+            parts.forEach(p => {
+                if (!/\S/.test(p.node.nodeValue.slice(p.s, p.e))) return;
+                const group = p.node.parentElement?.closest('ruby, .pinyin-inline-table');
+                if (group) { if (!seen.has(group)) { seen.add(group); targets.push(group); } return; }
+                const text = splitTextPart(p);
+                let span = text.parentElement;
+                if (!(span && span.dataset && span.dataset.fs === '1' && span.childNodes.length === 1)) {
+                    span = document.createElement('span'); span.dataset.fs = '1'; text.parentNode.insertBefore(span, text); span.appendChild(text);
+                }
+                targets.push(span);
+            });
+            if (!targets.length) return false;
+            targets.forEach(el => el.style.fontSize = Math.max(10, Math.min(200, Number(size))) + 'px');
+            saveHistoryImmediate(); setTimeout(resizeCanvas, 100); return true;
+        }
+
+        fontSizeSelect.addEventListener('mousedown', () => {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount && !sel.isCollapsed && whiteboard.contains(sel.anchorNode)) savedFontRange = sel.getRangeAt(0).cloneRange();
         });
-        document.getElementById('btnAMinus').addEventListener('click', () => {
-            if (resizeSelectedText(-4)) return;
-            currentFontSize = Math.max(14, currentFontSize - 2);
-            applyFontSize();
+        fontSizeSelect.addEventListener('change', () => {
+            if (savedFontRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedFontRange); savedFontRange = null; }
+            currentFontSize = Number(fontSizeSelect.value) || 24;
+            if (!setSelectedTextFontSize(currentFontSize)) applyFontSize();
         });
         document.getElementById('btnBold').addEventListener('click', () => { 
             document.execCommand('bold', false, null); 
             saveHistoryImmediate();
+        });
+
+        let formatPainterStyle = null;
+        const formatPainterButton = document.getElementById('btnFormatPainter');
+        formatPainterButton.addEventListener('mousedown', e => e.preventDefault());
+        formatPainterButton.addEventListener('click', () => {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !whiteboard.contains(sel.anchorNode)) {
+                alert('请先选中一段已有格式的文字，再点击格式刷。'); return;
+            }
+            const source = sel.anchorNode.nodeType === Node.ELEMENT_NODE ? sel.anchorNode : sel.anchorNode.parentElement;
+            const style = window.getComputedStyle(source);
+            formatPainterStyle = {fontWeight:style.fontWeight,fontStyle:style.fontStyle,textDecoration:style.textDecoration,color:style.color,backgroundColor:style.backgroundColor,fontSize:style.fontSize,fontFamily:style.fontFamily};
+            formatPainterButton.classList.add('ring-2','ring-yellow-400');
+            formatPainterButton.title = '格式已取样，请选中目标文字应用；再次点击可重新取样';
+        });
+        document.addEventListener('mouseup', () => {
+            if (!formatPainterStyle) return;
+            setTimeout(() => {
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !whiteboard.contains(sel.anchorNode)) return;
+                const range = sel.getRangeAt(0);
+                const span = document.createElement('span');
+                Object.assign(span.style, formatPainterStyle);
+                try { span.appendChild(range.extractContents()); range.insertNode(span); sel.removeAllRanges(); const nr=document.createRange(); nr.selectNodeContents(span); sel.addRange(nr); saveHistoryImmediate(); } catch (error) { console.warn('格式刷应用失败', error); }
+                formatPainterStyle = null; formatPainterButton.classList.remove('ring-2','ring-yellow-400'); formatPainterButton.title = '先选中有样式的文字，点击后再选目标文字';
+            }, 0);
         });
         function applyTextColor(color) {
             const sel = window.getSelection();
@@ -3113,7 +3168,7 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             }
         });
 
-        document.querySelectorAll('.toolbar-btn').forEach(btn => {
+        document.querySelectorAll('button.toolbar-btn').forEach(btn => {
             btn.addEventListener('mousedown', e => e.preventDefault());
         });
         document.getElementById('btnToggleTranslate').addEventListener('mousedown', e => e.preventDefault());
@@ -3160,7 +3215,7 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
                 wrapper.className = 'resizable-img-wrapper';
                 wrapper.style.width = '300px';
                 wrapper.style.height = '220px';
-                wrapper.title = word + '（图片来源：Wikimedia Commons）';
+                wrapper.title = word + '（图片来源：' + (info.source || '公开图片搜索') + '）';
                 const img = document.createElement('img');
                 img.src = info.url;
                 img.alt = word;
@@ -3179,7 +3234,7 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
                 alert('图片搜索失败，请检查网络连接后重试。');
             } finally {
                 button.disabled = false;
-                button.textContent = '🖼️ 词语配图';
+                button.textContent = '🔍 搜索图片';
             }
         }
         document.getElementById('btnInsertWordImage').addEventListener('mousedown', e => e.preventDefault());
@@ -3189,6 +3244,7 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
         const preview = document.getElementById('wordCardPreview');
         const bookSelect = document.getElementById('deckBook');
         const lessonSelect = document.getElementById('deckLesson');
+        const deckShowImage = document.getElementById('deckShowImage');
         const previous = document.getElementById('lessonPrev');
         const next = document.getElementById('lessonNext');
         const books = new Map(), pictures = new Map();
@@ -3262,12 +3318,14 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             const card = make('div','word-card-flash',''), inner = make('div','word-card-flash-inner','');
             const front = make('div','word-card-face word-card-front',''), back = make('div','word-card-face word-card-back','');
             const picture = make('div','word-card-image',entry.emoji || '💬');
+            picture.hidden = !deckShowImage.checked;
             front.append(make('div','word-card-title',bookSelect.value+' · '+lessonSelect.selectedOptions[0].text),make('div','word-card-word',entry.word),picture);
             back.append(make('strong','word-card-meaning',entry.word));
             const values = [window.pinyinPro?.pinyin(entry.word,{toneType:'symbol'}) || field('pinyin','拼音'),field('pos','part_of_speech','词性'),field('meaning','definition','translation','释义'),field('example_zh','examples','example','教材例句'),field('collocations','phrases','搭配')];
             ['拼音','词性','释义','教材例句','搭配'].forEach((label,i) => back.append(make('p','word-card-meaning',label+'　'+values[i])));
             inner.append(front,back); card.append(inner); preview.replaceChildren(card);
             card.onclick = () => card.classList.toggle('is-flipped');
+            if (!deckShowImage.checked) return;
             const key = entry.word+' '+values[2];
             try {
                 let visual = pictures.get(key);
@@ -3286,7 +3344,9 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
                 }
             } catch { /* 词卡可继续使用当前图标。 */ }
         }
-        document.getElementById('btnWordCard').onclick = () => { cardModal.hidden = false; if (books.size) showCard(); else loadBooks(); };
+        function openWordCard(showImage = true) { deckShowImage.checked = showImage; cardModal.hidden = false; if (books.size) showCard(); else loadBooks(); }
+        document.getElementById('btnWordCard').onclick = () => openWordCard(true);
+        deckShowImage.onchange = () => { if (!cardModal.hidden) showCard(); };
         function closeCards() { version++; cardModal.hidden = true; }
         document.getElementById('wordCardClose').onclick = closeCards;
         document.getElementById('wordCardCloseBottom').onclick = closeCards;

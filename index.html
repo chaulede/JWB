@@ -723,7 +723,7 @@
             <button id="btnDownloadCombinedHomework" onclick="downloadCombinedHomework()" class="w-full bg-sky-700 text-white py-1.5 rounded-lg font-bold hover:bg-sky-800 transition text-xs cursor-pointer flex justify-center items-center shadow-sm border border-sky-800">📥 下载课堂练习</button>
             
             <button id="btnGenNotes" class="w-full bg-emerald-600 text-white py-1.5 rounded-lg font-medium hover:bg-emerald-700 transition text-xs cursor-pointer flex justify-center items-center mt-1 border-t border-slate-200 pt-2">📚 一键整理白板笔记</button>
-            <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载复习笔记 (Word)</button>
+            <button id="btnDownloadNotes" class="hidden w-full bg-emerald-700 text-white py-1 rounded-lg text-xs hover:bg-emerald-800 transition cursor-pointer">📥 下载课堂笔记</button>
             <button id="btnGenEx" class="w-full bg-indigo-600 text-white py-1.5 rounded-lg font-medium hover:bg-indigo-700 transition text-sm cursor-pointer flex justify-center items-center mt-1 border-t border-slate-200 pt-2">✍️ 生成全套测试题</button>
             <button id="btnDownloadExStudent" class="hidden w-full bg-blue-600 text-white py-1 rounded-lg text-xs hover:bg-blue-700 transition cursor-pointer">📥 下载学生版测试题 (无答案)</button>
             <button id="btnDownloadExTeacher" class="hidden w-full bg-indigo-700 text-white py-1 rounded-lg text-xs hover:bg-indigo-800 transition cursor-pointer">📥 下载教师版测试题 (含答案)</button>
@@ -815,6 +815,21 @@
  </div>
 </div>
 
+<style id="download-style-modal-styles">
+#downloadStyleModal[hidden]{display:none!important}
+#downloadStyleModal{position:fixed;inset:0;z-index:10100;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)}
+#downloadStyleDialog{width:min(390px,94vw);padding:22px;border-radius:16px;background:#fff;box-shadow:0 20px 60px #0005;text-align:center}
+#downloadStyleDialog h3{margin:0 0 16px;color:#1e293b;font-size:18px}
+#downloadStyleChoices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#downloadStyleChoices button{padding:10px;border-radius:9px;font-weight:700;cursor:pointer}
+#downloadSimpleChoice{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc}
+#downloadTraditionalChoice{background:#ccfbf1;color:#0f766e;border:1px solid #5eead4}
+#downloadStyleCancel{margin-top:12px;padding:5px 12px;border:0;background:transparent;color:#64748b;cursor:pointer}
+</style>
+<div id="downloadStyleModal" hidden role="dialog" aria-modal="true" aria-labelledby="downloadStyleTitle">
+ <div id="downloadStyleDialog"><h3 id="downloadStyleTitle">请选择下载版本</h3><div id="downloadStyleChoices"><button id="downloadSimpleChoice" type="button">简体版</button><button id="downloadTraditionalChoice" type="button">繁体版</button></div><button id="downloadStyleCancel" type="button">取消</button></div>
+</div>
+
 <!-- 试卷 Modal -->
 <div id="examModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 justify-center items-center p-4">
     <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col">
@@ -827,7 +842,7 @@
             <button onclick="clearPptFromBoard()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium text-sm" title="从白板删除所有 PPT 导入的幻灯片内容，老师手写的其他内容会保留">🧹 清除白板上的 PPT</button>
             <div class="flex gap-3">
                 <button onclick="copyExam()" class="px-5 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium">📋 复制文本</button>
-                <button id="modalDownloadBtn" class="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium">📥 下载 Word (保留排版)</button>
+                <button id="modalDownloadBtn" class="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium">📥 选择版本下载</button>
             </div>
         </div>
     </div>
@@ -1308,7 +1323,37 @@
     // ================= 合并导出：看拼音写汉字 + 补全汉字 + 课堂测验 =================
     // 仅从白板现有试题节点读取并克隆；所有清理、排版和导出都在副本中完成，
     // 不修改白板 DOM、不清空课堂数据，也不影响撤销历史或课堂交互。
-    window.downloadCombinedHomework = function() {
+    function convertElementText(element, converter) {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            const parent = node.parentElement;
+            if (parent && parent.closest('script,style')) continue;
+            nodes.push(node);
+        }
+        nodes.forEach(textNode => { textNode.nodeValue = converter(textNode.nodeValue); });
+    }
+
+    function chooseDownloadStyle(title = '请选择下载版本') {
+        const modal = document.getElementById('downloadStyleModal');
+        const titleEl = document.getElementById('downloadStyleTitle');
+        if (!modal) return Promise.resolve(null);
+        titleEl.textContent = title;
+        modal.hidden = false;
+        return new Promise(resolve => {
+            const finish = style => { modal.hidden = true; resolve(style); };
+            document.getElementById('downloadSimpleChoice').onclick = () => finish('simplified');
+            document.getElementById('downloadTraditionalChoice').onclick = () => finish('traditional');
+            document.getElementById('downloadStyleCancel').onclick = () => finish(null);
+        });
+    }
+
+    window.downloadCombinedHomework = async function(style = '') {
+        if (!style) {
+            style = await chooseDownloadStyle('请选择课堂练习版本');
+            if (!style) return;
+        }
         const board = document.getElementById('whiteboardContent');
         if (!board) return;
 
@@ -1319,11 +1364,19 @@
             return;
         }
 
+        let converter = null;
+        if (style === 'traditional') {
+            const loaded = await window.ensureOpenCC();
+            if (!loaded) { alert('繁简转换组件加载失败，请检查网络后重试。'); return; }
+            converter = window.getOpenCCConverter('s2t');
+        }
+
         const sections = [];
         sourceBlocks.forEach((source, index) => {
             const clone = source.cloneNode(true);
             // 学生版不包含参考答案、显示答案按钮和单题导出工具。
             clone.querySelectorAll('.wp-no-export, .wp-answer-toggle, .wp-export-bar, .wp-answer').forEach(el => el.remove());
+            if (converter) convertElementText(clone, converter);
             const h2 = clone.querySelector('h2');
             const title = h2
                 ? h2.textContent.replace(/[📝✍️🧩]/g, '').trim()
@@ -1347,7 +1400,7 @@
         const dateText = today.getFullYear() + '-' +
             String(today.getMonth() + 1).padStart(2, '0') + '-' +
             String(today.getDate()).padStart(2, '0');
-        const headerHtml = `
+        let headerHtml = `
             <table style="width:100%;border-collapse:collapse;margin-bottom:18pt;border-bottom:2pt solid #1e3a8a;">
                 <tr>
                     <td style="font-family:'Microsoft YaHei',sans-serif;font-size:19pt;font-weight:bold;color:#1e3a8a;padding-bottom:7pt;">课后综合练习</td>
@@ -1356,6 +1409,12 @@
             </table>
             <p style="font-family:Arial,sans-serif;font-size:9.5pt;color:#64748b;margin:0 0 16pt 0;">生成日期：${dateText}</p>
         `;
+        if (converter) {
+            const headerHolder = document.createElement('div');
+            headerHolder.innerHTML = headerHtml;
+            convertElementText(headerHolder, converter);
+            headerHtml = headerHolder.innerHTML;
+        }
         const docHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
         <head><meta charset="utf-8"><title>课后综合练习</title>
         <style>
@@ -1371,7 +1430,7 @@
         const blob = new Blob(['\\ufeff' + docHtml], { type: 'application/msword' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = '课后综合练习_' + dateText + '.doc';
+        a.download = (style === 'traditional' ? '繁体中文课后综合练习_' : '简体中文课后综合练习_') + dateText + '.doc';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -3785,9 +3844,25 @@ ${sourceText}`;
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
         }
 
+        async function downloadNotesWithStyle() {
+            const style = await chooseDownloadStyle('请选择课堂笔记版本');
+            if (!style) return;
+            let content = document.getElementById('examContent').innerHTML;
+            if (style === 'traditional') {
+                const loaded = await window.ensureOpenCC();
+                if (!loaded) { alert('繁简转换组件加载失败，请检查网络后重试。'); return; }
+                const holder = document.createElement('div');
+                holder.innerHTML = content;
+                convertElementText(holder, window.getOpenCCConverter('s2t'));
+                content = holder.innerHTML;
+            }
+            downloadWord(content, style === 'traditional' ? '繁体课堂笔记' : '简体课堂笔记');
+        }
+        document.getElementById('btnDownloadNotes').addEventListener('click', downloadNotesWithStyle);
+
         document.getElementById('modalDownloadBtn').addEventListener('click', function() {
-            if (currentMode === 'note') {
-                downloadWord(document.getElementById('examContent').innerHTML, '复习笔记');
+            if (currentMode === 'note' || document.getElementById('modalTitle').innerText.includes('复习笔记')) {
+                downloadNotesWithStyle();
             } else {
                 const title = document.getElementById('modalTitle').innerText;
                 if (title.includes('教师版')) {
@@ -4273,6 +4348,8 @@ ${corpus || '（无课文，请根据词汇编写简单句子）'}
             }
             return converterCache[mode];
         }
+        window.ensureOpenCC = ensureOpenCC;
+        window.getOpenCCConverter = getConverter;
 
         async function convertBoard(mode) {
             // 先記下當前選區（載入組件是異步的）

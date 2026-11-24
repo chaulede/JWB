@@ -5252,7 +5252,7 @@ color:#f8fafc;font:10px system-ui}
  let running=false,paused=false,recognition=null,restartTimer=null,lastFinal='',queue=Promise.resolve(),drag=null,micStream=null,startInProgress=false;
  function status(value){$('jwbyCaptionStatus').textContent=value}
  function showPanel(){panel.hidden=false;$('jwbyCaptionRestore').hidden=true}
- function syncAuth(){if(!window.jwbyIsAuthenticated||window.jwbyIsAuthenticated())showPanel();else{panel.hidden=true;$('jwbyCaptionRestore').hidden=true}} syncAuth();document.addEventListener('jwby-static-authenticated',syncAuth);
+ function syncAuth(){panel.hidden=true;$('jwbyCaptionRestore').hidden=false} syncAuth();document.addEventListener('jwby-static-authenticated',syncAuth);
   function updateButtons(){$('jwbyStart').disabled=running;$('jwbyStop').disabled=!running;$('jwbyPause').disabled=!running;$('jwbyPause').textContent=paused?'▶':'Ⅱ';$('jwbyPause').title=paused?'继续识别':'暂停识别';$('jwbySourceLanguage').disabled=running;$('jwbyTargetLanguage').disabled=running;$('jwbyProvider').disabled=running}
   function updateTargetLabel(){$('jwbyTargetLabel').textContent=$('jwbyTargetLanguage').selectedOptions[0]?.textContent||'中文'}
   function targetConfig(){const configs={"zh-CN":{code:'zh-CN',name:'简体中文'},en:{code:'en',name:'英语'},vi:{code:'vi',name:'越南语'},ru:{code:'ru',name:'俄语'},uk:{code:'uk',name:'乌克兰语'},it:{code:'it',name:'意大利语'},th:{code:'th',name:'泰语'},kk:{code:'kk',name:'哈萨克语'},ja:{code:'ja',name:'日语'},ko:{code:'ko',name:'韩语'},fr:{code:'fr',name:'法语'},de:{code:'de',name:'德语'},es:{code:'es',name:'西班牙语'}};return configs[$('jwbyTargetLanguage').value]||configs['zh-CN']}

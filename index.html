@@ -618,6 +618,7 @@
                 </div>
                  <button id="btnInsertWordImage" class="toolbar-btn bg-cyan-50 text-cyan-700 border-cyan-200 font-bold" title="选中白板上的词语，搜索公开图片并插入白板">🔍 搜索图片</button>
                  <button id="btnWordCard" class="toolbar-btn bg-rose-50 text-rose-700 border-rose-200 font-bold" title="选中词语，生成可视化词卡">🎴 词卡</button>
+                 <button id="btnSmartCopy" class="toolbar-btn font-bold" title="复制为兼容 Word 的富文本和聊天窗口的纯文本">🧠 智能复制</button>
                 <button id="btnUndo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↩️ 撤销</button>
                 <button id="btnRedo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↪️ 还原</button>
             </div>
@@ -741,6 +742,12 @@
 #wordCardOptions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:9px 11px;border:1px solid #fed7aa;border-radius:10px;background:#fff}
 #wordCardOptions label{display:flex;align-items:center;gap:5px;color:#92400e;font-size:12px;font-weight:700}
 #wordCardOptions select{padding:4px 7px;border:1px solid #fdba74;border-radius:6px;background:#fff;color:#172033}
+#wordCardCustom{margin-bottom:12px;padding:10px 11px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed}
+#wordCardCustomTitle{display:block;margin-bottom:6px;color:#9a3412;font-size:12px;font-weight:700}
+#customWordInput{width:100%;min-height:54px;padding:7px 9px;border:1px solid #fdba74;border-radius:7px;background:#fff;resize:vertical;font-size:13px}
+#wordCardCustomActions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px}
+#customWordFile{max-width:220px;font-size:11px;color:#92400e}
+#btnGenerateCustomCards{padding:6px 10px;border:0;border-radius:7px;background:#ea580c;color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 #wordCardPreview{display:flex;justify-content:center}
 .word-card-board{width:min(680px,100%);padding:16px;border:5px solid #f59e0b;border-radius:18px;background:linear-gradient(135deg,#fff7ed,#fef3c7);font-family:"Microsoft YaHei",sans-serif;color:#172033}
 .word-card-flash{perspective:1200px;width:min(680px,100%);min-height:410px;cursor:pointer}
@@ -771,7 +778,7 @@
 <div id="wordCardModal" hidden role="dialog" aria-modal="true" aria-labelledby="wordCardTitle">
  <div id="wordCardDialog">
   <div id="wordCardHeader"><h2 id="wordCardTitle">🎴 词卡</h2><button id="wordCardClose" type="button" aria-label="关闭">×</button></div>
-   <div id="wordCardBody"><div id="wordCardOptions"><label>教材 <select id="deckBook"></select></label><label>课次 <select id="deckLesson"></select></label><label><input id="deckShowImage" type="checkbox" checked> 显示配图</label></div><div id="wordCardPreview" aria-live="polite"></div></div>
+    <div id="wordCardBody"><div id="wordCardCustom"><span id="wordCardCustomTitle">📝 自定义词汇闪卡</span><textarea id="customWordInput" placeholder="粘贴词汇，例如：漂亮 认真，聪明；或者每行一个词"></textarea><div id="wordCardCustomActions"><input id="customWordFile" type="file" accept=".txt,.csv,.json"><button id="btnGenerateCustomCards" type="button">生成自定义词卡</button></div></div><div id="wordCardOptions"><label>教材 <select id="deckBook"></select></label><label>课次 <select id="deckLesson"></select></label><label><input id="deckShowImage" type="checkbox" checked> 显示配图</label></div><div id="wordCardPreview" aria-live="polite"></div></div>
   <div id="wordCardActions"><button id="wordCardFlip" class="word-card-secondary" type="button">翻面</button><button id="lessonPrev">上一个</button><output id="lessonCount"></output><button id="lessonNext">下一个</button><button id="wordCardCloseBottom" class="word-card-secondary" type="button">关闭</button></div>
  </div>
 </div>
@@ -905,7 +912,6 @@
         { account: "萱萱", password: "xuanxuan" },
         { account: "Lemon", password: "Lemon" },
         { account: "bobo", password: "BOBO123" },
-        { account: "界蘭", password: "JIELAN123" },
         ...Array.from({ length: 99 }, (_, i) => ({ account: `teacher${i + 2}`, password: "123" }))
     ];
 
@@ -2469,6 +2475,53 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             }
         });
 
+        function chatTextFromNode(node) {
+            if (node.nodeType === Node.TEXT_NODE) return {base: node.nodeValue, pinyin: ''};
+            if (node.nodeType !== Node.ELEMENT_NODE) return {base: '', pinyin: ''};
+            if (node.tagName === 'RT' || node.classList.contains('py-top')) return {base: '', pinyin: node.textContent.trim()};
+            if (node.tagName === 'RUBY') {
+                const base = Array.from(node.childNodes).filter(child => !(child.nodeType === Node.ELEMENT_NODE && child.tagName === 'RT')).map(chatTextFromNode);
+                const py = Array.from(node.querySelectorAll('rt')).map(rt => rt.textContent.trim()).filter(Boolean).join(' ');
+                return {base: base.map(item => item.base).join(''), pinyin: py};
+            }
+            const parts = Array.from(node.childNodes).map(chatTextFromNode);
+            const base = parts.map(item => item.base).join('');
+            const pinyin = parts.map(item => item.pinyin).filter(Boolean).join(' ');
+            if (/^(P|DIV|LI|H1|H2|H3|H4|BLOCKQUOTE|TR)$/.test(node.tagName)) return {base: base.trim(), pinyin: pinyin.trim()};
+            return {base, pinyin};
+        }
+        function smartPlainText(root) {
+            const blocks = root.querySelectorAll('p,div,li,h1,h2,h3,h4,blockquote,tr');
+            if (!blocks.length) return chatTextFromNode(root).base.trim();
+            const topBlocks = Array.from(blocks).filter(node => !node.parentElement.closest('p,div,li,h1,h2,h3,h4,blockquote,tr'));
+            return topBlocks.map(node => {
+                const item = chatTextFromNode(node);
+                return item.pinyin ? item.base + '\n' + item.pinyin : item.base;
+            }).filter(Boolean).join('\n\n').trim();
+        }
+        function getSmartCopyPayload() {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !whiteboard.contains(sel.anchorNode)) return null;
+            const holder = document.createElement('div');
+            holder.appendChild(sel.getRangeAt(0).cloneContents());
+            return {html: holder.innerHTML, text: smartPlainText(holder) || holder.textContent.trim()};
+        }
+        function smartCopy() {
+            const payload = getSmartCopyPayload();
+            if (!payload) { alert('请先选中要复制的白板内容。'); return; }
+            const ok = document.execCommand('copy');
+            if (!ok) alert('复制失败，请检查浏览器权限。');
+        }
+        whiteboard.addEventListener('copy', event => {
+            const payload = getSmartCopyPayload();
+            if (!payload) return;
+            event.clipboardData.setData('text/html', payload.html);
+            event.clipboardData.setData('text/plain', payload.text);
+            event.preventDefault();
+        });
+        document.getElementById('btnSmartCopy').addEventListener('mousedown', e => e.preventDefault());
+        document.getElementById('btnSmartCopy').addEventListener('click', smartCopy);
+
         let currentFontSize = 24;
         whiteboard.style.fontSize = currentFontSize + 'px';
         const fontSizeSelect = document.getElementById('fontSizeSelect');
@@ -3325,6 +3378,36 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             index = 0;
             showCard();
         }
+        function parseCustomWords(text, fileName = '') {
+            const raw = String(text || '').trim();
+            if (!raw) return [];
+            if (/\.json$/i.test(fileName) || /^[\[{]/.test(raw)) {
+                try {
+                    const data = JSON.parse(raw);
+                    const list = Array.isArray(data) ? data : (Array.isArray(data.words) ? data.words : []);
+                    return list.map(item => typeof item === 'string' ? item : item.word || item.词语 || item.text).filter(Boolean).map(String);
+                } catch { /* 不是 JSON 时按普通文本继续解析。 */ }
+            }
+            return raw.split(/[\s,，、;；|\n\r\t]+/).map(word => word.trim()).filter(Boolean);
+        }
+        function loadCustomWords(words) {
+            const unique = [...new Set(words)].slice(0, 200);
+            if (!unique.length) { alert('请先粘贴或上传词汇。'); return; }
+            books.set('自定义词汇', new Map([['自定义词汇', unique.map(word => ({word}))]]));
+            bookSelect.replaceChildren(...Array.from(books.keys(), name => new Option(name,name)));
+            bookSelect.value = '自定义词汇';
+            selectBook();
+        }
+        document.getElementById('customWordFile').addEventListener('change', async event => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            document.getElementById('customWordInput').value = await file.text();
+        });
+        document.getElementById('btnGenerateCustomCards').addEventListener('click', () => {
+            const input = document.getElementById('customWordInput');
+            const fileName = document.getElementById('customWordFile').files?.[0]?.name || '';
+            loadCustomWords(parseCustomWords(input.value, fileName));
+        });
         function format(value) {
             if (Array.isArray(value)) return value.map(format).filter(Boolean).join('；');
             if (value && typeof value === 'object') return [value.zh || value.text, value.pinyin, value.en || value.translation].filter(Boolean).join(' ');
@@ -3382,7 +3465,7 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             front.append(make('div','word-card-title',bookSelect.value+' · '+lessonSelect.selectedOptions[0].text),make('div','word-card-word',entry.word),picture);
             back.append(make('strong','word-card-meaning',entry.word));
             const values = [window.pinyinPro?.pinyin(entry.word,{toneType:'symbol'}) || field('pinyin','拼音'),field('pos','part_of_speech','词性'),field('meaning','definition','translation','释义'),field('example_zh','examples','example','教材例句'),field('collocations','phrases','搭配')];
-            ['拼音','词性','释义','教材例句','搭配'].forEach((label,i) => back.append(make('p','word-card-meaning',label+'　'+values[i])));
+            ['拼音','词性','释义','教材例句','组词/搭配'].forEach((label,i) => back.append(make('p','word-card-meaning',label+'　'+values[i])));
             inner.append(front,back); card.append(inner); preview.replaceChildren(card);
             card.onclick = () => card.classList.toggle('is-flipped');
             if (!deckShowImage.checked) return;
@@ -3588,12 +3671,8 @@ ${sourceText}`;
             if (!apiKey) { alert('生成笔记必须填入 API Key！'); return; }
             if (!sourceText && !imageBase64) { alert('白板内容为空！请粘贴文字、截图或上传文档。'); return; }
 
-            let detectedLang = "English"; 
-            const translationBlocks = whiteboard.querySelectorAll('.english-line');
-            if (translationBlocks.length > 0) {
-                const textContent = translationBlocks[0].innerText; const match = textContent.match(/^\[(.*?)\]/);
-                if (match && match[1]) detectedLang = match[1];
-            }
+            const noteLang = (document.getElementById('targetLang')?.selectedOptions[0]?.textContent || '英语').split('(')[0].trim();
+            window.__noteLanguageLabel = noteLang;
 
             const btn = this; const originalText = btn.innerHTML;
             
@@ -3614,22 +3693,22 @@ ${vocabPrompt}
 【排版要求】每个例句必须按照以下格式输出，绝对不能出现中文重复：
 1. 中文句子
 pīn yīn
-${detectedLang}翻译
+${noteLang}翻译
 
 【结构要求】
 **主题topic：** (请提取核心主题写在这里)
 
-**一、核心词汇/ Core Vocabulary**
-| 词汇 | 拼音 | 词性 | ${detectedLang} |
+**一、核心词汇/ Core Vocabulary (${noteLang})**
+| 词汇 | 拼音 | 词性 | ${noteLang} |
 | --- | --- | --- | --- |
 | 例子 | lì zi | 名词 | example |
 
 **二、重点语法/ Key Grammar Points**
 1、【"语法点名称" / "Grammar Point Name (English)"】
-【用法说明 / Usage】...（先写中文用法说明；必须紧接着用 "English Note: ..." 给出该语法点的英文注释）
+【用法说明 / Usage】...（先写中文用法说明；必须紧接着用 "${noteLang} Note: ..." 给出该语法点的${noteLang}注释）
 1）、例句
 pīn yīn
-${detectedLang}翻译
+${noteLang}翻译
 
 **三、典型例句/ Typical Example Sentences**
 ...
@@ -3643,22 +3722,22 @@ ${vocabPrompt}
 【排版要求】每个例句必须按照以下格式输出，绝对不能出现中文重复：
 1. 中文句子
 pīn yīn
-${detectedLang}翻译
+${noteLang}翻译
 
 【结构要求】
 **主题topic：** (请提取白板的核心主题写在这里)
 
-**一、核心词汇/ Core Vocabulary**
-| 词汇 | 拼音 | 词性 | ${detectedLang} |
+**一、核心词汇/ Core Vocabulary (${noteLang})**
+| 词汇 | 拼音 | 词性 | ${noteLang} |
 | --- | --- | --- | --- |
 | 例子 | lì zi | 名词 | example |
 
 **二、重点语法/ Key Grammar Points**
 1、【"语法点名称" / "Grammar Point Name (English)"】
-【用法说明 / Usage】...（先写中文用法说明；必须紧接着用 "English Note: ..." 给出该语法点的英文注释）
+【用法说明 / Usage】...（先写中文用法说明；必须紧接着用 "${noteLang} Note: ..." 给出该语法点的${noteLang}注释）
 1）、例句
 pīn yīn
-Translation
+${noteLang}翻译
 
 **三、典型例句/ Typical Example Sentences**
 ...
@@ -3857,7 +3936,9 @@ ${sourceText}`;
                 convertElementText(holder, window.getOpenCCConverter('s2t'));
                 content = holder.innerHTML;
             }
-            downloadWord(content, style === 'traditional' ? '繁体课堂笔记' : '简体课堂笔记');
+            const langShort = ({英语:'英',法语:'法',日语:'日',韩语:'韩',德语:'德',意大利语:'意',西班牙语:'西',印尼语:'印',俄语:'俄',泰语:'泰',越南语:'越',波兰语:'波',哈萨克语:'哈'})[window.__noteLanguageLabel] || '英';
+            const filePrefix = style === 'traditional' ? '繁体' : '简体';
+            downloadWord(content, `${filePrefix}中${langShort}课堂笔记`);
         }
         document.getElementById('btnDownloadNotes').addEventListener('click', downloadNotesWithStyle);
 

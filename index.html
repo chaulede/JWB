@@ -2560,9 +2560,11 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
 
         function applyFontSize() {
             whiteboard.style.fontSize = currentFontSize + 'px';
-            whiteboard.querySelectorAll('.kb-rendered *').forEach(el => {
-                if (el.style && el.style.fontSize && /px/.test(el.style.fontSize)) {
-                    el.style.fontSize = '';
+            whiteboard.querySelectorAll('*').forEach(el => {
+                // 工具按钮、移动手柄等不可编辑控件不属于白板文字，不随字号改变。
+                if (el.closest('[contenteditable="false"]')) return;
+                if (el.textContent && el.textContent.trim()) {
+                    el.style.fontSize = currentFontSize + 'px';
                 }
             });
             setTimeout(resizeCanvas, 100);
@@ -2600,7 +2602,7 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
         fontSizeSelect.addEventListener('change', () => {
             if (savedFontRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedFontRange); savedFontRange = null; }
             currentFontSize = Number(fontSizeSelect.value) || 24;
-            if (!setSelectedTextFontSize(currentFontSize)) applyFontSize();
+            applyFontSize();
         });
         document.getElementById('btnBold').addEventListener('click', () => { 
             document.execCommand('bold', false, null); 

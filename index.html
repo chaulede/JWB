@@ -10,6 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.16/mammoth.browser.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/marked/4.3.0/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <style>
     /* ========== 提取自 Tailwind 的基础样式 ========== */
@@ -837,6 +839,22 @@
  <div id="downloadStyleDialog"><h3 id="downloadStyleTitle">请选择下载版本</h3><div id="downloadStyleChoices"><button id="downloadSimpleChoice" type="button">简体版</button><button id="downloadTraditionalChoice" type="button">繁体版</button></div><button id="downloadStyleCancel" type="button">取消</button></div>
 </div>
 
+<style id="note-format-modal-styles">
+#noteFormatModal[hidden]{display:none!important}
+#noteFormatModal{position:fixed;inset:0;z-index:10110;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)}
+#noteFormatDialog{width:min(390px,94vw);padding:22px;border-radius:16px;background:#fff;box-shadow:0 20px 60px #0005;text-align:center}
+#noteFormatDialog h3{margin:0 0 16px;color:#1e293b;font-size:18px}
+#noteFormatChoices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#noteFormatChoices button{padding:10px 8px;border-radius:9px;font-weight:700;cursor:pointer}
+#noteFormatDocChoice{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc}
+#noteFormatDocxChoice{background:#dcfce7;color:#15803d;border:1px solid #86efac}
+#noteFormatPdfChoice{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5}
+#noteFormatCancel{margin-top:12px;padding:5px 12px;border:0;background:transparent;color:#64748b;cursor:pointer}
+</style>
+<div id="noteFormatModal" hidden role="dialog" aria-modal="true" aria-labelledby="noteFormatTitle">
+ <div id="noteFormatDialog"><h3 id="noteFormatTitle">请选择课堂笔记格式</h3><div id="noteFormatChoices"><button id="noteFormatDocChoice" type="button">DOC</button><button id="noteFormatDocxChoice" type="button">DOCX</button><button id="noteFormatPdfChoice" type="button">PDF</button></div><button id="noteFormatCancel" type="button">取消</button></div>
+</div>
+
 <!-- 试卷 Modal -->
 <div id="examModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 justify-center items-center p-4">
     <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col">
@@ -1353,6 +1371,19 @@
             document.getElementById('downloadSimpleChoice').onclick = () => finish('simplified');
             document.getElementById('downloadTraditionalChoice').onclick = () => finish('traditional');
             document.getElementById('downloadStyleCancel').onclick = () => finish(null);
+        });
+    }
+
+    function chooseNoteDownloadFormat() {
+        const modal = document.getElementById('noteFormatModal');
+        if (!modal) return Promise.resolve(null);
+        modal.hidden = false;
+        return new Promise(resolve => {
+            const finish = format => { modal.hidden = true; resolve(format); };
+            document.getElementById('noteFormatDocChoice').onclick = () => finish('doc');
+            document.getElementById('noteFormatDocxChoice').onclick = () => finish('docx');
+            document.getElementById('noteFormatPdfChoice').onclick = () => finish('pdf');
+            document.getElementById('noteFormatCancel').onclick = () => finish(null);
         });
     }
 
@@ -3887,10 +3918,27 @@ ${sourceText}`;
             }
         }
 
-        function downloadWord(contentMarkdown, fileName) {
+        function downloadBlob(blob, fileName) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+
+        function getClassNoteFileName() {
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${month}.${day}课堂笔记`;
+        }
+
+        async function downloadWord(contentMarkdown, fileName, format = 'doc') {
             if (!contentMarkdown) { alert('没有可下载的内容'); return; }
             
-            const contentHtml = (typeof marked !== 'undefined') ? marked.parse(contentMarkdown) : contentMarkdown;
+            const contentHtml = /<[^>]+>/.test(contentMarkdown)
+                ? contentMarkdown
+                : ((typeof marked !== 'undefined') ? marked.parse(contentMarkdown) : contentMarkdown);
 
             const styleForWord = `
                 <style>
@@ -3915,18 +3963,52 @@ ${sourceText}`;
             `;
 
             const htmlContent = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${fileName}</title>${styleForWord}</head><body>${contentHtml}</body></html>`;
-            
+
+            if (format === 'docx') {
+                if (window.htmlDocx && typeof window.htmlDocx.asBlob === 'function') {
+                    const blob = window.htmlDocx.asBlob(htmlContent);
+                    downloadBlob(blob, `${fileName}.docx`);
+                } else {
+                    alert('DOCX 组件加载失败，请刷新页面后重试。');
+                }
+                return;
+            }
+
+            if (format === 'pdf') {
+                if (typeof window.html2pdf === 'function') {
+                    const holder = document.createElement('div');
+                    holder.innerHTML = `<div class="note-pdf-content">${contentHtml}</div>`;
+                    holder.style.cssText = 'position:fixed;left:-100000px;top:0;width:794px;background:#fff;padding:36px;color:#333;';
+                    holder.querySelector('.note-pdf-content').insertAdjacentHTML('afterbegin', styleForWord);
+                    document.body.appendChild(holder);
+                    await window.html2pdf().set({
+                        margin: 8,
+                        filename: `${fileName}.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    }).from(holder).save();
+                    holder.remove();
+                } else {
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) { alert('浏览器阻止了打印窗口，请允许弹出窗口后重试。'); return; }
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => printWindow.print(), 300);
+                }
+                return;
+            }
+
             const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `${fileName}.doc`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            downloadBlob(blob, `${fileName}.doc`);
         }
 
         async function downloadNotesWithStyle() {
             const style = await chooseDownloadStyle('请选择课堂笔记版本');
             if (!style) return;
+            const format = await chooseNoteDownloadFormat();
+            if (!format) return;
             let content = document.getElementById('examContent').innerHTML;
             if (style === 'traditional') {
                 const loaded = await window.ensureOpenCC();
@@ -3936,9 +4018,7 @@ ${sourceText}`;
                 convertElementText(holder, window.getOpenCCConverter('s2t'));
                 content = holder.innerHTML;
             }
-            const langShort = ({英语:'英',法语:'法',日语:'日',韩语:'韩',德语:'德',意大利语:'意',西班牙语:'西',印尼语:'印',俄语:'俄',泰语:'泰',越南语:'越',波兰语:'波',哈萨克语:'哈'})[window.__noteLanguageLabel] || '英';
-            const filePrefix = style === 'traditional' ? '繁体' : '简体';
-            downloadWord(content, `${filePrefix}中${langShort}课堂笔记`);
+            downloadWord(content, getClassNoteFileName(), format);
         }
         document.getElementById('btnDownloadNotes').addEventListener('click', downloadNotesWithStyle);
 

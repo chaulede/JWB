@@ -327,11 +327,12 @@
     }
     .toolbar-btn { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 6px 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; cursor: pointer; font-weight: 500; transition: all 0.2s; }
     .toolbar-btn:hover { background-color: #e2e8f0; }
+    .font-color-btn { display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 27px; min-width: 27px; border-radius: 6px; cursor: pointer; border: 1.5px solid rgba(148,163,184,.55); padding: 0; flex-shrink: 0; background: #fff; transition: all .15s; }
+    .font-color-btn span { font-weight: 800; font-size: 18px; line-height: 1; font-family: Georgia, 'Times New Roman', serif; }
+    .font-color-btn:hover { transform: scale(1.1); border-color: #334155; }
     .btn-draw-active { background-color: #3b82f6 !important; color: white !important; border-color: #2563eb !important; }
     #drawToolbar { display: none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: white; padding: 8px 16px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 100; align-items: center; gap: 12px; border: 1px solid #e2e8f0; flex-wrap: wrap; }
     .inline-flex { display: inline-flex !important; }
-    .font-color-btn { display: inline-block; width: 18px; height: 18px; min-width: 18px; min-height: 18px; border-radius: 50%; cursor: pointer; border: 1.5px solid rgba(0,0,0,0.15); padding: 0; flex-shrink: 0; transition: transform 0.15s; }
-    .font-color-btn:hover { transform: scale(1.2); border-color: #334155; }
     .color-btn { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
     .color-btn.active { border-color: #334155; transform: scale(1.15); }
     .color-btn:hover { transform: scale(1.15); }
@@ -577,15 +578,8 @@
                 <button id="btnBold" class="toolbar-btn font-bold" style="font-family: serif;">B</button>
                  <button id="btnFormatPainter" class="toolbar-btn bg-yellow-50 text-yellow-700 border-yellow-200 font-bold" title="先选中有样式的文字，点击后再选目标文字">🖌️ 格式刷</button>
                 <div class="inline-flex items-center gap-1 bg-slate-100 border border-slate-300 rounded-lg px-2 py-1" title="字体颜色">
-                    <span class="text-xs text-slate-500 font-bold mr-1">A</span>
-                    <button type="button" class="font-color-btn" style="background-color: #ec4899;" data-color="#ec4899" title="粉色"></button>
-                    <button type="button" class="font-color-btn" style="background-color: #f97316;" data-color="#f97316" title="橙色"></button>
-                    <button type="button" class="font-color-btn" style="background-color: #ef4444;" data-color="#ef4444" title="红色"></button>
-                    <button type="button" class="font-color-btn" style="background-color: #16a34a;" data-color="#16a34a" title="绿色"></button>
-                    <button type="button" class="font-color-btn" style="background-color: #06b6d4;" data-color="#06b6d4" title="青色"></button>
-                    <button type="button" class="font-color-btn" style="background-color: #2563eb;" data-color="#2563eb" title="蓝色"></button>
-                    <button type="button" class="font-color-btn" style="background-color: #9333ea;" data-color="#9333ea" title="紫色"></button>
-                    <button type="button" id="btnClearFontColor" class="text-xs text-slate-600 px-1 font-bold cursor-pointer" style="margin-left: 2px;" title="去掉选中文字的字体颜色">🚫去色</button>
+                    <button type="button" id="btnFontColor" class="font-color-btn" style="color:#ec4899" data-color="#ec4899" title="点击切换字体颜色：粉色"><span>A</span></button>
+                    <button type="button" id="btnClearFontColor" class="toolbar-btn font-bold" title="恢复选中文字的默认颜色">A</button>
                 </div>
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnDraw" class="toolbar-btn bg-slate-100 text-slate-700 border-slate-300 font-bold">✏️ 电子教鞭</button>
@@ -596,10 +590,10 @@
                 <!-- 新增：一键撤销所有拼音和翻译 -->
                 <button id="btnRemoveAllPinyinTrans" class="toolbar-btn bg-red-50 text-red-700 border-red-200 font-bold" title="一键移除白板上所有的拼音和翻译标注">🧹 清除拼音/翻译</button>
                 <!-- 打开字帖生成器按钮 -->
-                <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
+                <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 字帖</button>
                 <!-- 新增：根据标记直接挖空生成试题 -->
                 <button id="btnClozeTest" class="toolbar-btn bg-emerald-100 text-emerald-700 border-emerald-300 font-bold">✂️ 挖空生成试题</button>
-                <button id="btnToggleSimplifiedTraditional" class="toolbar-btn bg-teal-50 text-teal-700 border-teal-200 font-bold" style="min-width:92px" title="自动判断并切换简体/繁体；选中文字则只转换选中部分" aria-label="简繁互换">🔁 繁简互换</button>
+                <button id="btnToggleSimplifiedTraditional" class="toolbar-btn bg-teal-50 text-teal-700 border-teal-200 font-bold" style="min-width:92px" title="自动判断并切换简体/繁体；选中文字则只转换选中部分" aria-label="繁简">🔁 繁简</button>
                 
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
@@ -619,9 +613,8 @@
                     </select>
                      <button id="btnToggleTranslate" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold transition cursor-pointer" title="选中文字：无翻译则添加，有翻译则去除">🌐 翻译</button>
                 </div>
-                 <button id="btnInsertWordImage" class="toolbar-btn bg-cyan-50 text-cyan-700 border-cyan-200 font-bold" title="选中白板上的词语，搜索公开图片并插入白板">🔍 搜索图片</button>
+                 <button id="btnInsertWordImage" class="toolbar-btn bg-cyan-50 text-cyan-700 border-cyan-200 font-bold" title="选中白板上的词语，自动搜索公开图片并插入白板">🔍 搜索图片</button>
                  <button id="btnWordCard" class="toolbar-btn bg-rose-50 text-rose-700 border-rose-200 font-bold" title="选中词语，生成可视化词卡">🎴 词卡</button>
-                 <button id="btnSmartCopy" class="toolbar-btn font-bold" title="复制为兼容 Word 的富文本和聊天窗口的纯文本">🧠 智能复制</button>
                 <button id="btnUndo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↩️ 撤销</button>
                 <button id="btnRedo" class="toolbar-btn bg-amber-50 text-amber-700 border-amber-200">↪️ 还原</button>
             </div>
@@ -2507,53 +2500,6 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             }
         });
 
-        function chatTextFromNode(node) {
-            if (node.nodeType === Node.TEXT_NODE) return {base: node.nodeValue, pinyin: ''};
-            if (node.nodeType !== Node.ELEMENT_NODE) return {base: '', pinyin: ''};
-            if (node.tagName === 'RT' || node.classList.contains('py-top')) return {base: '', pinyin: node.textContent.trim()};
-            if (node.tagName === 'RUBY') {
-                const base = Array.from(node.childNodes).filter(child => !(child.nodeType === Node.ELEMENT_NODE && child.tagName === 'RT')).map(chatTextFromNode);
-                const py = Array.from(node.querySelectorAll('rt')).map(rt => rt.textContent.trim()).filter(Boolean).join(' ');
-                return {base: base.map(item => item.base).join(''), pinyin: py};
-            }
-            const parts = Array.from(node.childNodes).map(chatTextFromNode);
-            const base = parts.map(item => item.base).join('');
-            const pinyin = parts.map(item => item.pinyin).filter(Boolean).join(' ');
-            if (/^(P|DIV|LI|H1|H2|H3|H4|BLOCKQUOTE|TR)$/.test(node.tagName)) return {base: base.trim(), pinyin: pinyin.trim()};
-            return {base, pinyin};
-        }
-        function smartPlainText(root) {
-            const blocks = root.querySelectorAll('p,div,li,h1,h2,h3,h4,blockquote,tr');
-            if (!blocks.length) return chatTextFromNode(root).base.trim();
-            const topBlocks = Array.from(blocks).filter(node => !node.parentElement.closest('p,div,li,h1,h2,h3,h4,blockquote,tr'));
-            return topBlocks.map(node => {
-                const item = chatTextFromNode(node);
-                return item.pinyin ? item.base + '\n' + item.pinyin : item.base;
-            }).filter(Boolean).join('\n\n').trim();
-        }
-        function getSmartCopyPayload() {
-            const sel = window.getSelection();
-            if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !whiteboard.contains(sel.anchorNode)) return null;
-            const holder = document.createElement('div');
-            holder.appendChild(sel.getRangeAt(0).cloneContents());
-            return {html: holder.innerHTML, text: smartPlainText(holder) || holder.textContent.trim()};
-        }
-        function smartCopy() {
-            const payload = getSmartCopyPayload();
-            if (!payload) { alert('请先选中要复制的白板内容。'); return; }
-            const ok = document.execCommand('copy');
-            if (!ok) alert('复制失败，请检查浏览器权限。');
-        }
-        whiteboard.addEventListener('copy', event => {
-            const payload = getSmartCopyPayload();
-            if (!payload) return;
-            event.clipboardData.setData('text/html', payload.html);
-            event.clipboardData.setData('text/plain', payload.text);
-            event.preventDefault();
-        });
-        document.getElementById('btnSmartCopy').addEventListener('mousedown', e => e.preventDefault());
-        document.getElementById('btnSmartCopy').addEventListener('click', smartCopy);
-
         let currentFontSize = 24;
         whiteboard.style.fontSize = currentFontSize + 'px';
         const fontSizeSelect = document.getElementById('fontSizeSelect');
@@ -2666,16 +2612,7 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             saveHistoryImmediate();
         }
 
-        document.querySelectorAll('.font-color-btn').forEach(btn => {
-            btn.addEventListener('mousedown', e => e.preventDefault());
-            btn.addEventListener('click', function() {
-                applyTextColor(this.dataset.color);
-            });
-        });
-
-        const btnClearFontColor = document.getElementById('btnClearFontColor');
-        btnClearFontColor.addEventListener('mousedown', e => e.preventDefault());
-        btnClearFontColor.addEventListener('click', function() {
+        function clearSelectedTextColor() {
             const sel = window.getSelection();
             if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
                 alert('请先用鼠标选中需要去掉颜色的文字！');
@@ -2704,7 +2641,32 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
                 });
             }
             saveHistoryImmediate();
+        }
+
+        const fontColors = [
+            { color: '#ec4899', name: '粉色' },
+            { color: '#f97316', name: '橙色' },
+            { color: '#ef4444', name: '红色' },
+            { color: '#16a34a', name: '绿色' },
+            { color: '#06b6d4', name: '青色' },
+            { color: '#2563eb', name: '蓝色' },
+            { color: '#9333ea', name: '紫色' }
+        ];
+        const fontColorButton = document.getElementById('btnFontColor');
+        let fontColorIndex = 0;
+        fontColorButton.addEventListener('mousedown', e => e.preventDefault());
+        fontColorButton.addEventListener('click', () => {
+            const selectedColor = fontColors[fontColorIndex];
+            applyTextColor(selectedColor.color);
+            fontColorIndex = (fontColorIndex + 1) % fontColors.length;
+            const nextColor = fontColors[fontColorIndex];
+            fontColorButton.dataset.color = nextColor.color;
+            fontColorButton.style.color = nextColor.color;
+            fontColorButton.title = '点击切换字体颜色：' + nextColor.name;
         });
+        const btnClearFontColor = document.getElementById('btnClearFontColor');
+        btnClearFontColor.addEventListener('mousedown', e => e.preventDefault());
+        btnClearFontColor.addEventListener('click', clearSelectedTextColor);
 
         function removeSelectedElements(selector, restoreFn, emptyTip) {
             const selection = window.getSelection();
@@ -3340,26 +3302,41 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
         document.getElementById('btnToggleTranslate').addEventListener('mousedown', e => e.preventDefault());
 
         async function searchTeachingImage(word) {
-            const queries = [word + ' illustration', word];
+            const imageKeywords = {
+                '长城': ['长城', 'Great Wall of China'],
+                '故宫': ['故宫', 'Forbidden City Beijing'],
+                '天安门': ['天安门', 'Tiananmen Square'],
+                '熊猫': ['熊猫', 'giant panda'],
+                '春节': ['春节', 'Chinese New Year'],
+                '月亮': ['月亮', 'moon'],
+                '太阳': ['太阳', 'sun'],
+                '苹果': ['苹果', 'apple'],
+                '书': ['书', 'book'],
+                '桌子': ['桌子', 'table'],
+                '椅子': ['椅子', 'chair']
+            };
+            const queries = [...new Set(imageKeywords[word] || [word])];
+            try {
+                for (const query of queries) {
+                    const params = new URLSearchParams({ action: 'query', generator: 'search', gsrsearch: query, gsrnamespace: '6', gsrlimit: '10', prop: 'imageinfo', iiprop: 'url|mime', iiurlwidth: '640', format: 'json', origin: '*' });
+                    const response = await fetch('https://commons.wikimedia.org/w/api.php?' + params.toString());
+                    if (!response.ok) continue;
+                    const data = await response.json();
+                    const pages = Object.values(data.query?.pages || {});
+                    const info = pages.map(page => ({ page, image: page.imageinfo?.[0] })).find(x => x.image && /^image\//.test(x.image.mime || '') && (x.image.thumburl || x.image.url));
+                    if (info) return { url: info.image.thumburl || info.image.url, title: info.page.title || word, source: 'Wikimedia Commons' };
+                }
+            } catch (error) { console.warn('Wikimedia 图片搜索失败', error); }
             for (const query of queries) {
                 try {
-                    const response = await fetch('https://api.openverse.org/v1/images/?q=' + encodeURIComponent(query) + '&page_size=12');
-                    if (response.ok) {
-                        const data = await response.json();
-                        const item = (data.results || []).find(x => x.thumbnail || x.url);
-                        if (item) return { url: item.thumbnail || item.url, title: item.title || word, source: item.foreign_landing_url || 'Openverse' };
-                    }
+                    const response = await fetch('https://api.openverse.org/v1/images/?q=' + encodeURIComponent(query) + '&page_size=20');
+                    if (!response.ok) continue;
+                    const data = await response.json();
+                    const item = (data.results || []).find(x => x.thumbnail || x.url);
+                    if (item) return { url: item.thumbnail || item.url, title: item.title || word, source: item.foreign_landing_url || 'Openverse' };
                 } catch (error) { console.warn('Openverse 图片搜索失败', error); }
             }
-            try {
-                const params = new URLSearchParams({ action:'query', generator:'search', gsrsearch:word, gsrnamespace:'6', gsrlimit:'8', prop:'imageinfo', iiprop:'url|mime', iiurlwidth:'640', format:'json', origin:'*' });
-                const response = await fetch('https://commons.wikimedia.org/w/api.php?' + params.toString());
-                if (!response.ok) return null;
-                const data = await response.json();
-                const pages = Object.values(data.query?.pages || {});
-                const info = pages.map(page => page.imageinfo?.[0]).find(x => x && /^image\//.test(x.mime || '') && (x.thumburl || x.url));
-                return info ? { url: info.thumburl || info.url, title: word, source: 'Wikimedia Commons' } : null;
-            } catch (error) { console.warn('Wikimedia 图片搜索失败', error); return null; }
+            return null;
         }
 
         async function insertWordImageFromSearch() {
@@ -3376,7 +3353,6 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             try {
                 const info = await searchTeachingImage(word);
                 if (!info) { alert('没有找到“' + word + '”的图片。'); return; }
-
                 const wrapper = document.createElement('span');
                 wrapper.className = 'resizable-img-wrapper';
                 wrapper.style.width = '300px';
@@ -3403,8 +3379,10 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
                 button.textContent = '🔍 搜索图片';
             }
         }
-        document.getElementById('btnInsertWordImage').addEventListener('mousedown', e => e.preventDefault());
-        document.getElementById('btnInsertWordImage').addEventListener('click', insertWordImageFromSearch);
+
+        const imageSearchButton = document.getElementById('btnInsertWordImage');
+        imageSearchButton.addEventListener('mousedown', e => e.preventDefault());
+        imageSearchButton.addEventListener('click', insertWordImageFromSearch);
 
         const cardModal = document.getElementById('wordCardModal');
         const preview = document.getElementById('wordCardPreview');

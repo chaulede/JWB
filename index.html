@@ -2596,14 +2596,20 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             saveHistoryImmediate(); setTimeout(resizeCanvas, 100); return true;
         }
 
-        fontSizeSelect.addEventListener('mousedown', () => {
+        function rememberFontRange() {
+            savedFontRange = null;
             const sel = window.getSelection();
             if (sel && sel.rangeCount && !sel.isCollapsed && whiteboard.contains(sel.anchorNode)) savedFontRange = sel.getRangeAt(0).cloneRange();
-        });
+        }
+        function applyCurrentFontSize() {
+            // 有选区时只修改选中的字词；没有选区时才修改白板全部文字。
+            if (!setSelectedTextFontSize(currentFontSize)) applyFontSize();
+        }
+        fontSizeSelect.addEventListener('mousedown', rememberFontRange);
         fontSizeSelect.addEventListener('change', () => {
             if (savedFontRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedFontRange); savedFontRange = null; }
             currentFontSize = Number(fontSizeSelect.value) || 24;
-            applyFontSize();
+            applyCurrentFontSize();
         });
         function stepBoardFontSize(direction) {
             const options = Array.from(fontSizeSelect.options);
@@ -2614,6 +2620,8 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             fontSizeSelect.value = options[nextIndex].value;
             fontSizeSelect.dispatchEvent(new Event('change', { bubbles: true }));
         }
+        document.getElementById('btnFontSizeMinus').addEventListener('mousedown', rememberFontRange);
+        document.getElementById('btnFontSizePlus').addEventListener('mousedown', rememberFontRange);
         document.getElementById('btnFontSizeMinus').addEventListener('click', () => stepBoardFontSize(-1));
         document.getElementById('btnFontSizePlus').addEventListener('click', () => stepBoardFontSize(1));
         document.getElementById('btnBold').addEventListener('click', () => { 

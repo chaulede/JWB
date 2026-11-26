@@ -568,9 +568,11 @@
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                  <span class="text-sm text-slate-500">字号:</span>
+                 <button id="btnFontSizeMinus" class="toolbar-btn font-bold" type="button" title="缩小白板字号">−</button>
                  <select id="fontSizeSelect" class="toolbar-btn font-bold" title="选择字号">
                      <option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24" selected>24</option><option value="28">28</option><option value="32">32</option><option value="36">36</option><option value="40">40</option><option value="48">48</option><option value="56">56</option><option value="64">64</option><option value="72">72</option><option value="80">80</option>
                  </select>
+                 <button id="btnFontSizePlus" class="toolbar-btn font-bold" type="button" title="放大白板字号">+</button>
                 <span class="mx-1 text-slate-300">|</span>
                 <button id="btnBold" class="toolbar-btn font-bold" style="font-family: serif;">B</button>
                  <button id="btnFormatPainter" class="toolbar-btn bg-yellow-50 text-yellow-700 border-yellow-200 font-bold" title="先选中有样式的文字，点击后再选目标文字">🖌️ 格式刷</button>
@@ -597,8 +599,7 @@
                 <button id="btnOpenWorksheet" class="toolbar-btn bg-indigo-100 text-indigo-700 border-indigo-300 font-bold">📄 笔顺字帖</button>
                 <!-- 新增：根据标记直接挖空生成试题 -->
                 <button id="btnClozeTest" class="toolbar-btn bg-emerald-100 text-emerald-700 border-emerald-300 font-bold">✂️ 挖空生成试题</button>
-                <button id="btnS2T" class="toolbar-btn bg-teal-50 text-teal-700 border-teal-200 font-bold" title="選中文字則只轉選中部分；未選中則轉換整個白板">🔁 簡→繁</button>
-                <button id="btnT2S" class="toolbar-btn bg-teal-50 text-teal-700 border-teal-200 font-bold" title="選中文字則只轉選中部分；未選中則轉換整個白板">🔁 繁→簡</button>
+                <button id="btnToggleSimplifiedTraditional" class="toolbar-btn bg-teal-50 text-teal-700 border-teal-200 font-bold" style="min-width:92px" title="自动判断并切换简体/繁体；选中文字则只转换选中部分" aria-label="简繁互换">🔁 繁简互换</button>
                 
                 <div class="inline-flex items-center bg-purple-100 border border-purple-300 rounded-lg overflow-hidden">
                     <select id="targetLang" class="bg-transparent text-purple-700 font-bold text-xs px-2 py-1.5 outline-none cursor-pointer">
@@ -2604,6 +2605,17 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             currentFontSize = Number(fontSizeSelect.value) || 24;
             applyFontSize();
         });
+        function stepBoardFontSize(direction) {
+            const options = Array.from(fontSizeSelect.options);
+            let index = options.findIndex(option => Number(option.value) >= currentFontSize);
+            if (index < 0) index = options.length - 1;
+            if (Number(options[index].value) !== currentFontSize && direction < 0 && index > 0) index -= 1;
+            const nextIndex = Math.max(0, Math.min(options.length - 1, index + direction));
+            fontSizeSelect.value = options[nextIndex].value;
+            fontSizeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        document.getElementById('btnFontSizeMinus').addEventListener('click', () => stepBoardFontSize(-1));
+        document.getElementById('btnFontSizePlus').addEventListener('click', () => stepBoardFontSize(1));
         document.getElementById('btnBold').addEventListener('click', () => { 
             document.execCommand('bold', false, null); 
             saveHistoryImmediate();
@@ -3493,8 +3505,9 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             };
             const card = make('div','word-card-flash',''), inner = make('div','word-card-flash-inner','');
             const front = make('div','word-card-face word-card-front',''), back = make('div','word-card-face word-card-back','');
-            const picture = make('div','word-card-image',entry.emoji || '💬');
-            picture.hidden = !deckShowImage.checked;
+            // 词卡只使用词库或 AI 返回的合适 Emoji；没有合适配图时保持空白，不显示占位图。
+            const picture = make('div','word-card-image',entry.emoji || '');
+            picture.hidden = !deckShowImage.checked || !entry.emoji;
             front.append(make('div','word-card-title',bookSelect.value+' · '+lessonSelect.selectedOptions[0].text),make('div','word-card-word',entry.word),picture);
             back.append(make('strong','word-card-meaning',entry.word));
             const values = [window.pinyinPro?.pinyin(entry.word,{toneType:'symbol'}) || field('pinyin','拼音'),field('pos','part_of_speech','词性'),field('meaning','definition','translation','释义'),field('example_zh','examples','example','教材例句'),field('collocations','phrases','搭配')];
@@ -3506,17 +3519,16 @@ document.getElementById('docFileUpload').addEventListener('change', async functi
             try {
                 let visual = pictures.get(key);
                 if (!visual && apiKeyInput.value.trim()) {
-                    const raw = await callAI(key,'为中文教学词义选图。具体可画清楚的物体或动作给英文搜索词 query，抽象词给空 query。给合适的 emoji。仅输出 JSON {"query":"","emoji":""}');
+                    const raw = await callAI(key,'为中文教学词语选择一个准确、免费的 Emoji 配图。只有确实适合时才返回 emoji，否则返回空字符串。不要返回图片网址、搜索词或网络图片。仅输出 JSON {"emoji":""}');
                     const choice = JSON.parse(raw.replace(/```(?:json)?|```/g,'').trim());
-                    const match = choice.query ? await searchTeachingImage(choice.query) : null;
-                    visual = {emoji:choice.emoji, url:match?.url}; pictures.set(key,visual);
+                    visual = {emoji: typeof choice.emoji === 'string' ? choice.emoji.trim() : ''}; pictures.set(key,visual);
                 }
                 if (token !== version) return;
-                if (visual?.emoji) picture.textContent = visual.emoji;
-                const url = entry.image_url || visual?.url;
-                if (url && /^https:\/\//i.test(url)) {
-                    const img = new Image(); img.alt = entry.word;
-                    img.onload = () => { if (token === version) picture.replaceChildren(img); }; img.src = url;
+                if (visual?.emoji) {
+                    picture.textContent = visual.emoji;
+                    picture.hidden = false;
+                } else {
+                    picture.hidden = true;
                 }
             } catch { /* 词卡可继续使用当前图标。 */ }
         }
@@ -3980,17 +3992,22 @@ ${sourceText}`;
                 if (typeof window.html2pdf === 'function') {
                     const holder = document.createElement('div');
                     holder.innerHTML = `<div class="note-pdf-content">${contentHtml}</div>`;
-                    holder.style.cssText = 'position:fixed;left:-100000px;top:0;width:794px;background:#fff;padding:36px;color:#333;';
+                    // 必须放在视口内，html2canvas 才能正确捕获内容；生成后立即移除。
+                    holder.style.cssText = 'position:fixed;left:0;top:0;width:794px;min-height:1123px;z-index:2147483000;background:#fff;padding:36px;color:#333;pointer-events:none;';
                     holder.querySelector('.note-pdf-content').insertAdjacentHTML('afterbegin', styleForWord);
                     document.body.appendChild(holder);
-                    await window.html2pdf().set({
-                        margin: 8,
-                        filename: `${fileName}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                    }).from(holder).save();
-                    holder.remove();
+                    try {
+                        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                        await window.html2pdf().set({
+                            margin: 8,
+                            filename: `${fileName}.pdf`,
+                            image: { type: 'jpeg', quality: 0.98 },
+                            html2canvas: { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' },
+                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                        }).from(holder.querySelector('.note-pdf-content')).save();
+                    } finally {
+                        holder.remove();
+                    }
                 } else {
                     const printWindow = window.open('', '_blank');
                     if (!printWindow) { alert('浏览器阻止了打印窗口，请允许弹出窗口后重试。'); return; }
@@ -4561,8 +4578,21 @@ ${corpus || '（无课文，请根据词汇编写简单句子）'}
             if (!changed) alert(mode === 's2t' ? '沒有需要轉換的簡體字。' : '沒有需要轉換的繁體字。');
         }
 
-        document.getElementById('btnS2T').addEventListener('click', () => convertBoard('s2t'));
-        document.getElementById('btnT2S').addEventListener('click', () => convertBoard('t2s'));
+        document.getElementById('btnToggleSimplifiedTraditional').addEventListener('click', async () => {
+            const selected = window.getSelection();
+            const sample = selected && selected.rangeCount && !selected.isCollapsed && whiteboard.contains(selected.anchorNode)
+                ? selected.toString()
+                : getCleanBoardText();
+            if (!sample.trim()) { alert('白板上还没有可转换的中文内容。'); return; }
+            const loaded = await ensureOpenCC();
+            if (!loaded) { alert('繁简转换组件加载失败，请检查网络后重试。'); return; }
+            const toTraditional = getConverter('s2t')(sample);
+            const toSimplified = getConverter('t2s')(sample);
+            const traditionalChanges = Array.from(sample).filter((ch, i) => toTraditional[i] && toTraditional[i] !== ch).length;
+            const simplifiedChanges = Array.from(sample).filter((ch, i) => toSimplified[i] && toSimplified[i] !== ch).length;
+            if (!traditionalChanges && !simplifiedChanges) { alert('当前内容没有可转换的简体或繁体字。'); return; }
+            await convertBoard(traditionalChanges >= simplifiedChanges ? 's2t' : 't2s');
+        });
 
         // ================= 補全漢字（繁体优先：本地字典拆字，能拆的全部出题；AI 只给英文释义） =================
         document.getElementById('btnRadicalExam').addEventListener('click', function() {
@@ -4694,13 +4724,11 @@ ${corpus || '（无课文，请根据词汇编写简单句子）'}
 <!-- ============================================================
   白板补丁 v1
   用法：把本文件全部内容，粘贴到你主文件【最后一个 </script> 之后、</body> 之前】。
-  功能：① 修复拼音文字中间加字出错  ② 精准选词/点击去拼音  ③ 课堂演示模式(PPT/PDF 翻页+画笔)
+  功能：① 修复拼音文字中间加字出错  ② 精准选词去拼音  ③ 课堂演示模式(PPT/PDF 翻页+画笔)
 ============================================================ -->
 <style id="wbPatchStyle">
 /* —— 拼音层不可选、不可点：光标不会再进入拼音里 —— */
 ruby rt { user-select: none; -webkit-user-select: none; pointer-events: none; }
-#whiteboardContent.eraser-on ruby { cursor: pointer; }
-#whiteboardContent.eraser-on ruby:hover { background: #fecaca; border-radius: 3px; }
 
 /* —— 页面笔迹层 —— */
 .page-ink { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 850; pointer-events: none; overflow: hidden; }
@@ -5004,37 +5032,6 @@ ruby rt { user-select: none; -webkit-user-select: none; pointer-events: none; }
     const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
     e.preventDefault();
   });
-
-  // 「🩹 点击去拼音」模式
-  let eraser = false;
-  const eraserBtn = document.createElement('button');
-  eraserBtn.id = 'btnPinyinEraser';
-  eraserBtn.className = 'toolbar-btn';
-  eraserBtn.style.cssText = 'background:#fef2f2;color:#b91c1c;border-color:#fecaca;font-weight:700;';
-  eraserBtn.title = '开启后：点一下字，去掉它所在词的拼音；Shift+点 只去一个字';
-  eraserBtn.textContent = '🩹 点击去拼音: 关';
-  eraserBtn.addEventListener('mousedown', e => e.preventDefault());
-  eraserBtn.addEventListener('click', () => {
-    eraser = !eraser;
-    eraserBtn.textContent = '🩹 点击去拼音: ' + (eraser ? '开' : '关');
-    eraserBtn.classList.toggle('btn-draw-active', eraser);
-    wb.classList.toggle('eraser-on', eraser);
-  });
-  const pyBtn = $('btnTogglePinyin');
-  if (pyBtn) pyBtn.after(eraserBtn);
-  wb.addEventListener('mousedown', e => {
-    if (eraser && e.target.closest && e.target.closest('ruby')) e.preventDefault();
-  }, true);
-  wb.addEventListener('click', e => {
-    if (!eraser) return;
-    const ru = e.target.closest && e.target.closest('ruby');
-    if (!ru) return;
-    e.preventDefault();
-    saveHist();
-    unwrap(e.shiftKey ? [ru] : wordRun(ru));
-    wb.normalize();
-    saveHist();
-  }, true);
 
   /* =========================================================
      C. 课堂演示模式：一次一页 PPT/PDF + 画笔/荧光笔/激光笔
